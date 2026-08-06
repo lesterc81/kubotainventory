@@ -17,6 +17,11 @@ env/
 logs/
 nohup.out
 
+# Desktop packaging (PyInstaller) output + runtime config
+build/
+dist/
+config.json
+
 # Database backups
 backups/
 *.db

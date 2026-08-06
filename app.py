@@ -90,7 +90,10 @@ class DevelopmentConfig(BaseConfig):
 
 class ProductionConfig(BaseConfig):
     DEBUG = False
-    SESSION_COOKIE_SECURE = True  # requires HTTPS â€” set to False only if you truly can't
+    # The packaged desktop app serves plain HTTP on a LAN, so Secure cookies
+    # (which browsers/requests refuse to send over http://) would break login.
+    # Enable ``SESSION_COOKIE_SECURE`` only when TLS is actually terminated.
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() in ("1", "true", "yes")
 
 
 class TestingConfig(BaseConfig):
