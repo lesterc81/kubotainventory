@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Accountabilities — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Accountabilities</h1>
+    <p>Track asset accountability records per employee</p>
+  </div>
+  <div class="page-header-actions">
+    {% if current_user.can_edit() %}
+    <a href="{{ url_for('accountabilities.new') }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">assignment_add</span> New Record
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="filter-bar">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="filter-search">
+        <span class="material-icons-round">search</span>
+        <input type="search" name="q" value="{{ q }}" placeholder="Employee name or ID…">
+      </div>
+      <select name="status" class="form-control" style="max-width:180px" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        {% for s in ['Active','Pending Return','Returned','Incomplete','Archived'] %}
+        <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-tonal btn-sm">Filter</button>
+      {% if q or status_filter %}<a href="{{ url_for('accountabilities.list_view') }}" class="btn btn-outline btn-sm">Clear</a>{% endif %}
+    </form>
+    <span class="text-muted" style="margin-left:auto">{{ total }} records</span>
+  </div>
+
+  {% if accs %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Type</th>
+          <th>Effective Date</th>
+          <th>Status</th>
+          <th>Assets</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in accs %}
+      <tr>
+        <td>
+          <strong>{{ a.employee_name }}</strong>
+          <div class="text-muted text-small">{{ a.accountability_type }}</div>
+        </td>
+        <td>{{ a.accountability_type }}</td>
+        <td>{{ a.effective_date[:10] if a.effective_date else '—' }}</td>
+        <td>
+          <span class="chip
+            {% if a.status == 'Active' %}chip-green
+            {% elif a.status == 'Returned' %}chip-blue
+            {% elif a.status == 'Incomplete' %}chip-red
+            {% elif a.status == 'Pending Return' %}chip-orange
+            {% else %}chip-grey{% endif %}">
+            {{ a.status }}
+          </span>
+        </td>
+        <td>
+          <span class="chip chip-primary">{{ a.asset_ids|length if a.asset_ids else 0 }}</span>
+        </td>
+        <td>
+          <a href="{{ url_for('accountabilities.detail', acc_id=a._id) }}" class="btn btn-tonal btn-sm">
+            <span class="material-icons-round">visibility</span> View
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-icons-round">assignment</span>
+    <h3>No accountability records</h3>
+    <p>{% if status_filter %}Try a different status filter{% else %}Create the first accountability record{% endif %}</p>
+    {% if current_user.can_edit() and not status_filter %}
+    <a href="{{ url_for('accountabilities.new') }}" class="btn btn-primary mt-2">
+      <span class="material-icons-round">assignment_add</span> Create Record
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% set endpoint = 'accountabilities.list_view' %}
+  {% include "_pagination.html" %}
+</div>
+{% endblock %}

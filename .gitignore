@@ -1,0 +1,33 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.venv-*/
+venv/
+env/
+
+# Runtime / logs
+*.log
+logs/
+nohup.out
+
+# Database backups
+backups/
+*.db
+
+# Test artifacts
+runtest_server.py
+testserver.out.log
+testserver.err.log
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/

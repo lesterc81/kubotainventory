@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Accountability Detail — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('accountabilities.list_view') }}">Accountabilities</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>Record Detail</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Accountability Record</h1>
+    <p>{{ acc.accountability_type }} — {{ acc.effective_date[:10] if acc.effective_date else '' }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('io.accountability_pdf', acc_id=acc._id) }}" class="btn btn-tonal btn-sm">
+      <span class="material-icons-round">picture_as_pdf</span> Export PDF
+    </a>
+    {% if current_user.can_edit() and acc.status == 'Active' %}
+    <button class="btn btn-outline btn-sm" data-dialog-open="closeDialog">
+      <span class="material-icons-round">check_circle</span> Close Record
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+<div class="detail-grid">
+  <div>
+    <!-- Summary -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <div class="card-title"><span class="material-icons-round">assignment</span> Summary</div>
+        <span class="chip {% if acc.status == 'Active' %}chip-green{% elif acc.status == 'Returned' %}chip-blue{% elif acc.status == 'Incomplete' %}chip-red{% elif acc.status == 'Pending Return' %}chip-orange{% else %}chip-grey{% endif %}">
+          {{ acc.status }}
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="info-list">
+          <div class="info-row"><span class="info-label">Type</span><span class="info-value font-bold">{{ acc.accountability_type }}</span></div>
+          <div class="info-row"><span class="info-label">Effective Date</span><span class="info-value">{{ acc.effective_date[:10] if acc.effective_date else '—' }}</span></div>
+          <div class="info-row">
+            <span class="info-label">Received</span>
+            <span class="info-value">
+              {% if acc.received_at %}{{ acc.received_at[:10] }} by {{ acc.received_by }} <span class="chip chip-blue" style="margin-left:6px">via {{ acc.received_method }}</span>
+              {% else %}<span class="text-muted">Not yet</span>{% endif %}
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Approved</span>
+            <span class="info-value">
+              {% if acc.approved_at %}{{ acc.approved_at[:10] }} by {{ acc.approved_by }}
+              {% else %}<span class="text-muted">Not yet</span>{% endif %}
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Email Sent</span>
+            <span class="info-value">
+              {% if acc.email_sent_at %}{{ acc.email_sent_at[:10] }} → {{ acc.email_sent_to }}
+              {% else %}<span class="text-muted">No email sent</span>{% endif %}
+            </span>
+          </div>
+          {% if acc.notes %}<div class="info-row"><span class="info-label">Notes</span><span class="info-value">{{ acc.notes }}</span></div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Employee -->
+    {% if emp %}
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">person</span> Employee</div></div>
+      <div class="card-body">
+        <div class="info-list">
+          <div class="info-row"><span class="info-label">Name</span><span class="info-value"><a href="{{ url_for('employees.detail', employee_id=emp._id) }}">{{ emp.full_name }}</a></span></div>
+          <div class="info-row"><span class="info-label">ID</span><span class="info-value text-mono">{{ emp.employee_id }}</span></div>
+          <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department }}</span></div>
+          <div class="info-row"><span class="info-label">Position</span><span class="info-value">{{ emp.position }}</span></div>
+          <div class="info-row"><span class="info-label">Site</span><span class="info-value">{{ emp.site }}</span></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Workstation -->
+    {% if ws %}
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">workspaces</span> Workstation</div></div>
+      <div class="card-body">
+        <div class="info-list">
+          <div class="info-row"><span class="info-label">Code</span><span class="info-value"><a href="{{ url_for('workstations.detail', ws_id=ws._id) }}">{{ ws.workstation_code }}</a></span></div>
+          <div class="info-row"><span class="info-label">Location</span><span class="info-value">{{ ws.location }}</span></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Assets -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <div class="card-title"><span class="material-icons-round">devices</span> Assets ({{ assets|length }})</div>
+      </div>
+      {% if assets %}
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Asset Tag</th><th>Type</th><th>Model</th><th>Serial</th><th>Status</th></tr></thead>
+          <tbody>
+          {% for a in assets %}
+          <tr>
+            <td><a href="{{ url_for('assets.detail', asset_id=a._id) }}">{{ a.asset_tag }}</a></td>
+            <td>{{ a.device_type }}</td>
+            <td>{{ a.model_name }}</td>
+            <td class="text-mono text-small">{{ a.serial_number }}</td>
+            <td><span class="chip chip-blue">{{ a.status }}</span></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:24px"><span class="material-icons-round">devices_other</span><p>No assets in this record</p></div>
+      {% endif %}
+    </div>
+
+    <!-- Remarks Timeline -->
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">timeline</span> Remarks Timeline</div></div>
+      <div class="card-body">
+        {% if acc.remarks_timeline %}
+        <div class="timeline">
+          {% for r in acc.remarks_timeline %}
+          <div class="timeline-item">
+            <div class="timeline-dot"><span class="material-icons-round">radio_button_checked</span></div>
+            <div class="timeline-body">
+              <div class="timeline-text">{{ r.text }}</div>
+              <div class="timeline-meta">{{ r.by }} · {{ r.date[:19].replace('T',' ') if r.date else '' }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:16px"><span class="material-icons-round">timeline</span><p>No timeline entries</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right -->
+  <div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">bolt</span> Actions</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+        <a href="{{ url_for('io.accountability_pdf', acc_id=acc._id) }}" class="btn btn-primary w-full" style="justify-content:center">
+          <span class="material-icons-round">picture_as_pdf</span> Download PDF
+        </a>
+        {% if current_user.can_edit() and acc.status == 'Active' %}
+          {% if not acc.received_at %}
+          <form method="POST" action="{{ url_for('accountabilities.mark_received', acc_id=acc._id) }}" style="display:block">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline w-full" style="justify-content:center">
+              <span class="material-icons-round">inventory</span> Mark Received
+            </button>
+          </form>
+          {% endif %}
+          {% if not acc.approved_at %}
+          <form method="POST" action="{{ url_for('accountabilities.approve', acc_id=acc._id) }}" style="display:block">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-tonal w-full" style="justify-content:center">
+              <span class="material-icons-round">verified</span> Approve
+            </button>
+          </form>
+          {% endif %}
+          {% if not acc.received_at %}
+          <form method="POST" action="{{ url_for('accountabilities.send_email', acc_id=acc._id) }}" style="display:block">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline w-full" style="justify-content:center">
+              <span class="material-icons-round">mail</span> Send Receive Email
+            </button>
+          </form>
+          {% endif %}
+        <button class="btn btn-outline w-full" style="justify-content:center" data-dialog-open="closeDialog">
+          <span class="material-icons-round">check_circle</span> Close Record
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Close Dialog -->
+<div class="dialog-overlay" id="closeDialog">
+  <div class="dialog">
+    <div class="dialog-header">Close Accountability Record</div>
+    <form method="POST" action="{{ url_for('accountabilities.close', acc_id=acc._id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="dialog-body" style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group">
+          <label>Closing Status</label>
+          <select name="status" class="form-control">
+            <option value="Returned">Returned</option>
+            <option value="Incomplete">Incomplete</option>
+            <option value="Archived">Archived</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Closing Remark</label>
+          <textarea name="remark" class="form-control" rows="3" placeholder="Describe the closing action…">All assets returned.</textarea>
+        </div>
+        <p class="text-muted text-small">All linked assets will be set back to Available.</p>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn btn-outline" data-dialog-close="closeDialog">Cancel</button>
+        <button type="submit" class="btn btn-primary">Confirm Close</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

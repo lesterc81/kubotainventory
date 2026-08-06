@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Import Inventory — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Import Inventory</h1>
+    <p>Bulk import assets from Excel (.xlsx) or CSV files</p>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">
+  <div>
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">upload_file</span> Upload File</div></div>
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="card-body">
+          <div class="form-group mb-3">
+            <label>Select File (.xlsx or .csv)</label>
+            <input type="file" name="file" class="form-control" accept=".xlsx,.csv" required>
+            <span class="form-hint">Max file size: 16 MB</span>
+          </div>
+          <div style="background:var(--paper);border-radius:8px;padding:14px;font-size:13px;color:var(--ink-muted)">
+            <strong style="color:var(--ink)">Required columns:</strong>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+              {% for col in ['Endpoint Name','Site','Last Logged In User','Serial Number','Device Type','Model Name','OS Version'] %}
+              <span class="chip chip-primary">{{ col }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button type="submit" class="btn btn-primary">
+            <span class="material-icons-round">upload</span> Import
+          </button>
+        </div>
+      </form>
+    </div>
+
+    {% if failed_rows %}
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="material-icons-round">error</span> Failed Rows ({{ failed_rows|length }})</div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Serial Number</th><th>Reason</th></tr></thead>
+          <tbody>
+          {% for f in failed_rows %}
+          <tr>
+            <td class="text-mono">{{ f.row.get('Serial Number', '—') }}</td>
+            <td class="text-muted">{{ f.reason }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Instructions -->
+  <div class="card">
+    <div class="card-header"><div class="card-title"><span class="material-icons-round">help_outline</span> Instructions</div></div>
+    <div class="card-body" style="font-size:13px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <strong>Supported formats</strong>
+        <p class="text-muted mt-1">.xlsx (Excel) and .csv files are accepted.</p>
+      </div>
+      <div>
+        <strong>Duplicate handling</strong>
+        <p class="text-muted mt-1">Assets with duplicate Serial Numbers are skipped — existing records are not overwritten.</p>
+      </div>
+      <div>
+        <strong>Auto-generated fields</strong>
+        <p class="text-muted mt-1">Asset Tag is auto-generated from Serial Number prefix on import. You can edit it afterwards.</p>
+      </div>
+      <div>
+        <strong>Status on import</strong>
+        <p class="text-muted mt-1">All imported assets are set to <span class="chip chip-green" style="font-size:11px">Available</span> by default.</p>
+      </div>
+      <div>
+        <a href="{{ url_for('io.export_assets') }}" class="btn btn-tonal btn-sm w-full" style="justify-content:center">
+          <span class="material-icons-round">download</span> Download Template
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

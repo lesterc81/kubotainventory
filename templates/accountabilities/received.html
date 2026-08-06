@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Asset Receipt Confirmation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prata&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #F3EFE6;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100dvh;
+      padding: 16px;
+    }
+    .card {
+      background: #FAF8F3;
+      border: 2.5px solid #221E18;
+      border-radius: 16px 18px 14px 20px;
+      box-shadow: 4px 4px 0 #221E18;
+      max-width: 460px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+    .card-header {
+      background: {% if ok %}#1E7A3C{% else %}#C73E3E{% endif %};
+      color: white;
+      padding: 28px 24px;
+      text-align: center;
+      border-bottom: 2.5px solid #221E18;
+    }
+    .card-header .icon { font-size: 48px; margin-bottom: 8px; }
+    .card-header h1 { font-family: 'Prata', serif; font-weight: 400; font-size: 20px; }
+    .card-body { padding: 24px; font-size: 14px; color: #3a342b; line-height: 1.6; }
+    .card-body .item {
+      border: 2px solid #221E18;
+      border-radius: 10px 12px 8px 14px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .item .label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #8A7F72; margin-bottom: 2px; }
+    .item .value { font-weight: 700; color: #221E18; }
+    .meta { margin-top: 16px; font-size: 12px; color: #8A7F72; }
+    .btn {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      background: #221E18;
+      color: #FAF8F3;
+      padding: 13px 20px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      border: 2px solid #221E18;
+      box-shadow: 3px 3px 0 #C73E3E;
+    }
+    .btn.secondary { background: #fff; color: #221E18; box-shadow: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="icon material-icons-round">{% if ok %}verified_user{% else %}report_problem{% endif %}</div>
+      <h1>{% if ok %}Receipt Confirmed{% else %}Link Invalid{% endif %}</h1>
+    </div>
+    <div class="card-body">
+      {% if ok %}
+        {% if acc.received_at %}
+          <p><strong>Thank you.</strong> Your receipt of the assets below has been recorded
+          on <strong>{{ acc.received_at[:10] }}</strong>. No further action is needed.</p>
+        {% else %}
+          <p><strong>Thank you.</strong> Your receipt has been confirmed and recorded. No further action is needed.</p>
+        {% endif %}
+        {% if emp %}
+        <div class="item">
+          <div class="label">Employee</div>
+          <div class="value">{{ emp.full_name }}</div>
+        </div>
+        {% endif %}
+        <div class="item">
+          <div class="label">Accountability Type</div>
+          <div class="value">{{ acc.accountability_type }}</div>
+        </div>
+        <div class="item">
+          <div class="label">Assets Covered</div>
+          <div class="value">{{ acc.asset_ids|length if acc.asset_ids else 0 }}</div>
+        </div>
+        <div class="meta">
+          Reference: {{ acc.id }}<br>
+          For questions, please contact your IT department.
+        </div>
+      {% else %}
+        <p>This confirmation link is <strong>{{ reason }}</strong>.</p>
+        <p class="meta">
+          The link may have expired (links are valid for 7 days), or the record may have
+          already been finalized. Please contact your IT department for assistance.
+        </p>
+        <a href="mailto:?subject=IT%20Asset%20Receipt%20Confirmation" class="btn secondary">Contact IT</a>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

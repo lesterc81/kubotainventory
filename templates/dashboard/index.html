@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — IT Asset System{% endblock %}
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Dashboard</h1>
+    <p>Overview of IT assets and accountabilities</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('assets.new') }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">add</span> New Asset
+    </a>
+    <a href="{{ url_for('io.import_inventory') }}" class="btn btn-tonal btn-sm">
+      <span class="material-icons-round">upload_file</span> Import
+    </a>
+  </div>
+</div>
+
+<!-- Stat Cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-card-icon"><span class="material-icons-round">devices</span></div>
+    <div class="stat-card-value">{{ stats.total_assets }}</div>
+    <div class="stat-card-label">Total Assets</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-card-icon"><span class="material-icons-round">assignment_turned_in</span></div>
+    <div class="stat-card-value">{{ stats.assigned_assets }}</div>
+    <div class="stat-card-label">Assigned</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon"><span class="material-icons-round">inventory_2</span></div>
+    <div class="stat-card-value">{{ stats.available_assets }}</div>
+    <div class="stat-card-label">Available</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon"><span class="material-icons-round">workspaces</span></div>
+    <div class="stat-card-value">{{ stats.total_workstations }}</div>
+    <div class="stat-card-label">Workstations</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon"><span class="material-icons-round">badge</span></div>
+    <div class="stat-card-value">{{ stats.total_employees }}</div>
+    <div class="stat-card-label">Active Employees</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon"><span class="material-icons-round">assignment</span></div>
+    <div class="stat-card-value">{{ stats.active_accountabilities }}</div>
+    <div class="stat-card-label">Accountabilities</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-card-icon"><span class="material-icons-round">warning</span></div>
+    <div class="stat-card-value">{{ stats.warranty_alerts }}</div>
+    <div class="stat-card-label">Warranty Alerts</div>
+  </div>
+  <div class="stat-card error">
+    <div class="stat-card-icon"><span class="material-icons-round">build</span></div>
+    <div class="stat-card-value">{{ stats.under_maintenance }}</div>
+    <div class="stat-card-label">Under Maintenance</div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="charts-grid">
+  <div class="chart-card">
+    <div class="chart-title">Assets by Location</div>
+    <canvas id="chartLocation" height="220"></canvas>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Assets by Type</div>
+    <canvas id="chartType" height="220"></canvas>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Accountability Status</div>
+    <canvas id="chartAcc" height="220"></canvas>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Audit Results</div>
+    <canvas id="chartAudit" height="220"></canvas>
+  </div>
+</div>
+
+<!-- Warranty Alerts -->
+{% if warnings %}
+<div class="card mt-3">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">warning</span> Upcoming Warranty Expiries</div>
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Asset Tag</th><th>Model</th><th>Location</th><th>Warranty Expiry</th><th></th></tr></thead>
+      <tbody>
+      {% for w in warnings %}
+      <tr>
+        <td><a href="{{ url_for('assets.detail', asset_id=w._id) }}">{{ w.asset_tag }}</a></td>
+        <td>{{ w.model_name }}</td>
+        <td>{{ w.location }}</td>
+        <td><span class="chip chip-orange">{{ w.warranty_expiry[:10] if w.warranty_expiry else 'N/A' }}</span></td>
+        <td><a href="{{ url_for('assets.detail', asset_id=w._id) }}" class="btn btn-tonal btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Recent Activity -->
+<div class="card mt-3">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">history</span> Recent Activity</div>
+    {% if current_user.is_admin() %}
+    <a href="{{ url_for('audits.trail') }}" class="btn btn-outline btn-sm">View All</a>
+    {% endif %}
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Time</th><th>User</th><th>Module</th><th>Action</th><th>IP</th></tr></thead>
+      <tbody>
+      {% for log in recent_logs %}
+      <tr>
+        <td class="text-muted text-small text-mono">{{ log.timestamp[:19].replace('T',' ') if log.timestamp else '' }}</td>
+        <td>{{ log.username }}</td>
+        <td>{{ log.module }}</td>
+        <td><span class="chip chip-blue">{{ log.action }}</span></td>
+        <td class="text-muted text-small">{{ log.ip_address }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-muted" style="padding:24px;text-align:center">No activity yet</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const palette = ['#C73E3E','#2B6C4B','#A6781A','#3A6B8C','#221E18','#8A7F72','#B8AD9E','#D4C9B8'];
+const byLoc = {{ by_location | safe }};
+const byType = {{ by_type | safe }};
+const accStatus = {{ accountability_status | safe }};
+const auditRes = {{ audit_results | safe }};
+renderBarChart('chartLocation', byLoc.map(d=>d.label), byLoc.map(d=>d.value), '#C73E3E');
+renderDoughnut('chartType', byType.map(d=>d.label), byType.map(d=>d.value), palette);
+renderDoughnut('chartAcc', accStatus.map(d=>d.label), accStatus.map(d=>d.value), ['#2B6C4B','#A6781A','#3A6B8C','#C73E3E','#B8AD9E']);
+renderDoughnut('chartAudit', auditRes.map(d=>d.label), auditRes.map(d=>d.value), ['#2B6C4B','#C73E3E','#A6781A']);
+</script>
+{% endblock %}

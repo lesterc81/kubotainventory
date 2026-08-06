@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}New Accountability — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('accountabilities.list_view') }}">Accountabilities</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>New Record</span>
+</div>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>New Accountability Record</h1>
+    <p>Assign assets and workstation to an employee</p>
+  </div>
+</div>
+
+<div class="card" style="max-width:900px">
+  <form method="POST" novalidate>
+    {{ form.csrf_token }}
+
+    <!-- Employee -->
+    <div class="card-header"><div class="card-title"><span class="material-icons-round">badge</span> Employee</div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group" style="position:relative">
+          <label>Employee *</label>
+          <input type="text" id="employeeSearch" class="form-control" placeholder="Search by name or ID…" autocomplete="off">
+          {{ form.employee_id(id="employee_id") }}
+          <div id="empResults" style="position:absolute;top:100%;left:0;right:0;border:1px solid var(--border);border-radius:8px;background:var(--card);z-index:50;max-height:180px;overflow-y:auto;display:flex;flex-direction:column"></div>
+        </div>
+        <div class="form-group">
+          <label>Type *</label>
+          {{ form.accountability_type(class="form-control") }}
+        </div>
+        <div class="form-group">
+          <label>Effective Date *</label>
+          {{ form.effective_date(class="form-control") }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Workstation -->
+    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">workspaces</span> Workstation (Optional)</div></div>
+    <div class="card-body">
+      <div class="form-group" style="max-width:400px">
+        <label>Select Workstation</label>
+        <select name="workstation_id_select" class="form-control" id="workstationSelect">
+          <option value="">— None —</option>
+          {% for w in workstations %}
+          <option value="{{ w._id }}">{{ w.workstation_code }}{% if w.workstation_name %} — {{ w.workstation_name }}{% endif %} ({{ w.location }})</option>
+          {% endfor %}
+        </select>
+        {{ form.workstation_id(id="workstation_id") }}
+      </div>
+    </div>
+
+    <!-- Assets -->
+    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">devices</span> Assets</div></div>
+    <div class="card-body">
+      <p class="text-muted mb-2">Select available assets to include in this accountability record.</p>
+      {{ form.asset_ids(id="assetIdsField", type="hidden") }}
+      {% if assets_available %}
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+        <div class="filter-search" style="flex:1;min-width:200px;">
+          <span class="material-icons-round">search</span>
+          <input type="search" id="assetPickerSearch" class="form-control" placeholder="Search tag, type, model, serial…">
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap;">
+          <input type="checkbox" id="assetSelectAllPage"> Select all on this page
+        </label>
+        <span class="chip chip-primary" id="assetSelectedCount">0 selected</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th style="width:40px"></th><th>Asset Tag</th><th>Type</th><th>Model</th><th>Serial</th></tr></thead>
+          <tbody id="assetPickerBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="assetPickerPagination" style="justify-content:center"></div>
+      {% else %}
+      <div class="empty-state" style="padding:24px"><span class="material-icons-round">devices_other</span><p>No available assets</p></div>
+      {% endif %}
+    </div>
+
+    <!-- Notes -->
+    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">notes</span> Notes</div></div>
+    <div class="card-body">
+      {{ form.notes(class="form-control", rows=3, placeholder="Additional notes or context…") }}
+    </div>
+
+    <!-- Email -->
+    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">mail</span> Email Notification</div></div>
+    <div class="card-body">
+      <label class="checkbox-inline" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        {{ form.send_email() }}
+        <span style="font-size:14px">Send a "Confirm I Received These Assets" email to the employee</span>
+      </label>
+      <p class="text-muted text-small mt-1" style="margin-top:6px">
+        Use this for new handovers. For assets the employee already has, leave it unchecked —
+        they'll be marked received manually.
+      </p>
+    </div>
+
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">save</span> Create Accountability
+      </button>
+      <a href="{{ url_for('accountabilities.list_view') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<style>
+.autocomplete-item { padding:10px 14px; cursor:pointer; font-size:13px; }
+.autocomplete-item:hover { background: var(--paper); }
+</style>
+{% endblock %}
+{% block extra_js %}
+<script>
+// ─── Asset picker: search + 10/page pagination, selections persist across pages ───
+(function () {
+  var field = document.getElementById('assetIdsField');
+  var body = document.getElementById('assetPickerBody');
+  if (!field || !body) return;
+  var all = {{ assets_available|tojson }};
+  var selected = new Set();
+  var PER = 10;
+  var page = 1;
+  var filter = '';
+
+  function matching() {
+    var f = filter.toLowerCase();
+    if (!f) return all;
+    return all.filter(function (a) {
+      return [a.asset_tag, a.device_type, a.model_name, a.serial_number, a.endpoint_name || '']
+        .join(' ').toLowerCase().indexOf(f) !== -1;
+    });
+  }
+
+  function render() {
+    var list = matching();
+    var totalPages = Math.max(Math.ceil(list.length / PER), 1);
+    if (page > totalPages) page = totalPages;
+    var start = (page - 1) * PER;
+    var slice = list.slice(start, start + PER);
+
+    body.innerHTML = '';
+    if (!slice.length) {
+      body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--ink-muted)">No matching assets</td></tr>';
+    }
+    slice.forEach(function (a) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'asset-check';
+      cb.value = a.id;
+      cb.checked = selected.has(a.id);
+      cb.addEventListener('change', function () {
+        if (cb.checked) selected.add(a.id); else selected.delete(a.id);
+        sync();
+      });
+      td.appendChild(cb);
+      tr.appendChild(td);
+      ['asset_tag', 'device_type', 'model_name', 'serial_number'].forEach(function (k) {
+        var t = document.createElement('td');
+        t.textContent = a[k] || '—';
+        if (k === 'asset_tag') t.className = 'text-mono';
+        if (k === 'serial_number') { t.className = 'text-mono text-small'; }
+        tr.appendChild(t);
+      });
+      body.appendChild(tr);
+    });
+    renderPagination(totalPages);
+    sync();
+  }
+
+  function renderPagination(totalPages) {
+    var wrap = document.getElementById('assetPickerPagination');
+    wrap.innerHTML = '';
+    if (totalPages <= 1) return;
+    function nav(label, disabled, fn) {
+      var a = document.createElement('a');
+      a.href = 'javascript:void(0)';
+      a.className = 'material-icons-round';
+      a.textContent = label;
+      a.style.cssText = disabled ? 'opacity:0.3;pointer-events:none' : '';
+      a.onclick = function () { fn(); };
+      wrap.appendChild(a);
+    }
+    nav('chevron_left', page <= 1, function () { if (page > 1) { page--; render(); } });
+    for (var i = 1; i <= totalPages; i++) {
+      if (i === page) {
+        var s = document.createElement('span');
+        s.className = 'active';
+        s.textContent = i;
+        wrap.appendChild(s);
+      } else {
+        var a = document.createElement('a');
+        a.href = 'javascript:void(0)';
+        a.textContent = i;
+        a.onclick = (function (pp) { return function () { page = pp; render(); }; })(i);
+        wrap.appendChild(a);
+      }
+    }
+    nav('chevron_right', page >= totalPages, function () { if (page < totalPages) { page++; render(); } });
+  }
+
+  function sync() {
+    field.value = JSON.stringify(Array.from(selected));
+    document.getElementById('assetSelectedCount').textContent = selected.size + ' selected';
+    var selAll = document.getElementById('assetSelectAllPage');
+    var list = matching();
+    var slice = list.slice((page - 1) * PER, page * PER);
+    selAll.checked = slice.length > 0 && slice.every(function (a) { return selected.has(a.id); });
+  }
+
+  var search = document.getElementById('assetPickerSearch');
+  search.addEventListener('input', function () { filter = search.value.trim(); page = 1; render(); });
+
+  document.getElementById('assetSelectAllPage').addEventListener('change', function (e) {
+    var list = matching();
+    var slice = list.slice((page - 1) * PER, page * PER);
+    if (e.target.checked) slice.forEach(function (a) { selected.add(a.id); });
+    else slice.forEach(function (a) { selected.delete(a.id); });
+    render();
+  });
+
+  try {
+    var existing = field.value ? JSON.parse(field.value) : [];
+    existing.forEach(function (id) { selected.add(id); });
+  } catch (err) { /* ignore malformed field */ }
+
+  render();
+
+  document.querySelector('form').addEventListener('submit', sync);
+})();
+
+// Wire workstation select to hidden field
+document.getElementById('workstationSelect')?.addEventListener('change', function() {
+  document.getElementById('workstation_id').value = this.value;
+});
+</script>
+{% endblock %}

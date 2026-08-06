@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Workstations — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Workstations</h1>
+    <p>Manage workstation locations and their assigned assets</p>
+  </div>
+  <div class="page-header-actions">
+    {% if current_user.can_edit() %}
+    <a href="{{ url_for('workstations.new') }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">add</span> New Workstation
+    </a>
+    {% endif %}
+    <a href="{{ url_for('io.workstation_stickers') }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">qr_code</span> Stickers
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="filter-bar">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="filter-search">
+        <span class="material-icons-round">search</span>
+        <input type="search" name="q" value="{{ q }}" placeholder="Code, name, location…">
+      </div>
+      <button type="submit" class="btn btn-tonal btn-sm">Search</button>
+      {% if q %}<a href="{{ url_for('workstations.list_view') }}" class="btn btn-outline btn-sm">Clear</a>{% endif %}
+    </form>
+    <span class="text-muted" style="margin-left:auto">{{ total }} workstations</span>
+  </div>
+
+  {% if workstations %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Location</th>
+          <th>Department</th>
+          <th>Assets</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for w in workstations %}
+      <tr>
+        <td>
+          <a href="{{ url_for('workstations.detail', ws_id=w._id) }}" style="font-weight:600;font-family:var(--font-mono)">{{ w.workstation_code }}</a>
+        </td>
+        <td>{{ w.workstation_name or '—' }}</td>
+        <td>{{ w.location }}</td>
+        <td>{{ w.department or '—' }}</td>
+        <td>
+          <span class="chip chip-primary">{{ w.asset_count }} asset{{ 's' if w.asset_count != 1 else '' }}</span>
+        </td>
+        <td>
+          <span class="chip {% if w.status == 'Active' %}chip-green{% elif w.status == 'Archived' %}chip-grey{% else %}chip-orange{% endif %}">
+            {{ w.status }}
+          </span>
+        </td>
+        <td>
+          <div class="flex" style="gap:6px">
+            <a href="{{ url_for('workstations.detail', ws_id=w._id) }}" class="btn btn-tonal btn-sm">
+              <span class="material-icons-round">visibility</span>
+            </a>
+            {% if current_user.can_edit() %}
+            <a href="{{ url_for('workstations.edit', ws_id=w._id) }}" class="btn btn-outline btn-sm">
+              <span class="material-icons-round">edit</span>
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-icons-round">workspaces</span>
+    <h3>No workstations found</h3>
+    <p>{% if q %}Try a different search{% else %}Add your first workstation{% endif %}</p>
+    {% if current_user.can_edit() and not q %}
+    <a href="{{ url_for('workstations.new') }}" class="btn btn-primary mt-2">
+      <span class="material-icons-round">add</span> Add Workstation
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% set endpoint = 'workstations.list_view' %}
+  {% include "_pagination.html" %}
+</div>
+{% endblock %}

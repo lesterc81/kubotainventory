@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Users — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>System Users</h1>
+    <p>Manage access accounts and roles</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('users.new') }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">person_add</span> New User
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="filter-bar">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="filter-search">
+        <span class="material-icons-round">search</span>
+        <input type="search" name="q" value="{{ q }}" placeholder="Username, name, email…">
+      </div>
+      <button type="submit" class="btn btn-tonal btn-sm">Search</button>
+      {% if q %}<a href="{{ url_for('users.list_view') }}" class="btn btn-outline btn-sm">Clear</a>{% endif %}
+    </form>
+    <span class="text-muted" style="margin-left:auto">{{ total }} users</span>
+  </div>
+
+  {% if users %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+      {% for u in users %}
+      <tr>
+        <td class="font-bold text-mono">{{ u.username }}</td>
+        <td>{{ u.full_name }}</td>
+        <td class="text-small">{{ u.email }}</td>
+        <td>
+          <span class="chip {% if u.role == 'admin' %}chip-primary{% elif u.role == 'editor' %}chip-blue{% else %}chip-grey{% endif %}">
+            {{ u.role|title }}
+          </span>
+        </td>
+        <td>
+          <span class="chip {% if u.is_active %}chip-green{% else %}chip-red{% endif %}">
+            {% if u.is_active %}Active{% else %}Inactive{% endif %}
+          </span>
+        </td>
+        <td class="text-muted text-small">{{ u.last_login[:19].replace('T',' ') if u.last_login else 'Never' }}</td>
+        <td>
+          <a href="{{ url_for('users.edit', user_id=u._id) }}" class="btn btn-outline btn-sm">
+            <span class="material-icons-round">edit</span>
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><span class="material-icons-round">manage_accounts</span><h3>No users found</h3></div>
+  {% endif %}
+
+  {% set endpoint = 'users.list_view' %}
+  {% include "_pagination.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Transfer Asset: {{ asset.asset_tag }} — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('assets.list_view') }}">Assets</a>
+  <span class="material-icons-round">chevron_right</span>
+  <a href="{{ url_for('assets.detail', asset_id=asset.id) }}">{{ asset.asset_tag }}</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>Transfer</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Transfer Asset</h1>
+    <p>Move <strong>{{ asset.asset_tag }}</strong> ({{ asset.model_name }}) to a new location or employee</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">arrow_back</span> Back to Asset
+    </a>
+  </div>
+</div>
+
+<div class="card" style="max-width:860px">
+  <div class="card-header">
+    <div class="card-title">
+      <span class="material-icons-round">swap_horiz</span> 
+      Transfer Details
+    </div>
+  </div>
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-body">
+      <!-- Current Status -->
+      <div class="current-status-section">
+        <h3>Current Status</h3>
+        <div class="status-grid">
+          <div class="status-item">
+            <label>Status</label>
+            <span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span>
+          </div>
+          <div class="status-item">
+            <label>Assigned To</label>
+            <span>
+              {% if current_employee %}
+                {{ current_employee.full_name }} ({{ current_employee.employee_id }})
+              {% else %}
+                <span class="text-muted">Not Assigned</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="status-item">
+            <label>Workstation</label>
+            <span>
+              {% if current_workstation %}
+                {{ current_workstation.workstation_code }} - {{ current_workstation.location }}
+              {% else %}
+                <span class="text-muted">Not in Workstation</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="status-item">
+            <label>Device Type</label>
+            <span>{{ asset.device_type }}</span>
+          </div>
+          <div class="status-item">
+            <label>Serial Number</label>
+            <span>{{ asset.serial_number }}</span>
+          </div>
+          <div class="status-item">
+            <label>Location</label>
+            <span>{{ asset.location or 'Not specified' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- Validation Errors -->
+      {% if validation_errors %}
+        <div class="alert alert-danger">
+          <span class="material-icons-round">error</span>
+          <div>
+            <strong>Transfer Not Allowed</strong>
+            <ul>
+              {% for error in validation_errors %}
+                <li>{{ error }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Transfer Form -->
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Target Type *</label>
+          <select name="target_type" class="form-control" id="target_type" required>
+            <option value="">-- Select Target Type --</option>
+            <option value="employee">Employee</option>
+            <option value="workstation">Workstation</option>
+            <option value="stockroom">Stockroom (Unassign)</option>
+          </select>
+        </div>
+
+        <div class="form-group full" id="target_select" style="display:none;">
+          <label>Select Target *</label>
+          <select name="target_id" class="form-control" id="target_id">
+            <option value="">-- Select --</option>
+          </select>
+        </div>
+
+        <div class="form-group full">
+          <label>Reason for Transfer</label>
+          <input type="text" name="reason" class="form-control" placeholder="e.g., New hire, Upgrade, Relocation">
+        </div>
+          
+        <div class="form-group full">
+          <label>Notes</label>
+          <textarea name="notes" class="form-control" rows="3" placeholder="Additional details..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary" {% if validation_errors %}disabled{% endif %}>
+        <span class="material-icons-round">sync</span>
+        Transfer Asset
+      </button>
+      <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+document.getElementById('target_type').addEventListener('change', function() {
+  const targetType = this.value;
+  const targetSelect = document.getElementById('target_select');
+  const targetId = document.getElementById('target_id');
+  
+  if (targetType) {
+    targetSelect.style.display = 'block';
+    targetId.innerHTML = '<option value="">-- Select --</option>';
+    
+    if (targetType === 'employee') {
+      {% for emp in available_employees %}
+        targetId.innerHTML += `<option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.employee_id }}) - {{ emp.department }}</option>`;
+      {% endfor %}
+    } else if (targetType === 'workstation') {
+      {% for ws in available_workstations %}
+        targetId.innerHTML += `<option value="{{ ws.id }}">{{ ws.workstation_code }} - {{ ws.location }} ({{ ws.department }})</option>`;
+      {% endfor %}
+    } else if (targetType === 'stockroom') {
+      targetId.innerHTML = '<option value="stockroom">Stockroom</option>';
+    }
+  } else {
+    targetSelect.style.display = 'none';
+  }
+});
+</script>
+
+
+{% endblock %}

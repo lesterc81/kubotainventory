@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('employees.list_view') }}">Employees</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>{{ title }}</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ title }}</h1>
+    <p>{% if emp %}Update employee information{% else %}Add a new employee to the system{% endif %}</p>
+  </div>
+  {% if emp %}
+  <div class="page-header-actions">
+    <a href="{{ url_for('employees.detail', employee_id=emp._id) }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">arrow_back</span> Back to Detail
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card" style="max-width:860px">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">badge</span> Employee Information</div>
+  </div>
+  <form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>{{ form.employee_id.label }} *</label>
+          {{ form.employee_id(class="form-control" + (" error" if form.employee_id.errors else ""), placeholder="EMP-001") }}
+          {% for e in form.employee_id.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>{{ form.full_name.label }} *</label>
+          {{ form.full_name(class="form-control" + (" error" if form.full_name.errors else ""), placeholder="Juan dela Cruz") }}
+          {% for e in form.full_name.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>{{ form.email.label }} *</label>
+          {{ form.email(class="form-control" + (" error" if form.email.errors else ""), placeholder="juan@company.com") }}
+          {% for e in form.email.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>{{ form.contact_number.label }}</label>
+          {{ form.contact_number(class="form-control", placeholder="+63 917 000 0000") }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.department.label }} *</label>
+          {{ form.department(class="form-control", placeholder="Information Technology") }}
+          {% for e in form.department.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>{{ form.position.label }} *</label>
+          {{ form.position(class="form-control", placeholder="Systems Analyst") }}
+          {% for e in form.position.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>{{ form.site.label }} *</label>
+          {{ form.site(class="form-control", placeholder="Manila HQ") }}
+          {% for e in form.site.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>{{ form.date_hired.label }}</label>
+          {{ form.date_hired(class="form-control") }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.status.label }}</label>
+          {{ form.status(class="form-control") }}
+        </div>
+        <div class="form-group full">
+          <label>{{ form.notes.label }}</label>
+          {{ form.notes(class="form-control", rows=3, placeholder="Additional notes…") }}
+        </div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">save</span>
+        {% if emp %}Save Changes{% else %}Create Employee{% endif %}
+      </button>
+      <a href="{{ url_for('employees.list_view') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

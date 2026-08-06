@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}IT Asset System{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prata&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+{% if current_user.is_authenticated %}
+
+{% set section_map = {
+  'dashboard.': 'overview',
+  'search.': 'overview',
+  'assets.': 'inventory',
+  'workstations.': 'inventory',
+  'employees.': 'people',
+  'accountabilities.': 'records',
+  'audits.': 'records',
+  'remarks.': 'records',
+  'users.': 'admin',
+  'ai.': 'admin',
+  'io.': 'inventory',
+  'scan.': 'inventory',
+} %}
+{% set current_section = '' %}
+{% for prefix, section in section_map.items() %}
+  {% if request.endpoint and request.endpoint.startswith(prefix) %}
+    {% set current_section = section %}
+  {% endif %}
+{% endfor %}
+
+{# ─── Hamburger (mobile) ─────────────────────────────────────────── #}
+<button class="hamburger" id="hamburgerToggle" aria-label="Menu">
+  <span class="material-icons-round">menu</span>
+</button>
+
+{# ─── Sidebar Overlay (mobile) ───────────────────────────────────── #}
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+{# ─── Sidebar ────────────────────────────────────────────────────── #}
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <a href="{{ url_for('dashboard.index') }}" class="sidebar-brand">
+      <span class="brand-icon">◆</span>
+      <div>
+        <div class="brand-text">IT Assets</div>
+        <div class="brand-sub">Management</div>
+      </div>
+    </a>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">Overview</div>
+    <a href="{{ url_for('dashboard.index') }}"
+       class="sidebar-link{% if request.endpoint == 'dashboard.index' %} active{% endif %}">
+      <span class="material-icons-round">dashboard</span>
+      Dashboard
+    </a>
+    <a href="{{ url_for('dashboard.search') }}"
+       class="sidebar-link{% if request.endpoint == 'dashboard.search' %} active{% endif %}">
+      <span class="material-icons-round">search</span>
+      Search
+    </a>
+
+    <div class="sidebar-section-label">Inventory</div>
+    <a href="{{ url_for('assets.list_view') }}"
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('assets.') %} active{% endif %}">
+      <span class="material-icons-round">inventory_2</span>
+      Assets
+    </a>
+    <a href="{{ url_for('workstations.list_view') }}"
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('workstations.') %} active{% endif %}">
+      <span class="material-icons-round">workspaces</span>
+      Workstations
+    </a>
+
+    <div class="sidebar-section-label">People</div>
+    <a href="{{ url_for('employees.list_view') }}"
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('employees.') %} active{% endif %}">
+      <span class="material-icons-round">badge</span>
+      Employees
+    </a>
+
+    <div class="sidebar-section-label">Records</div>
+    <a href="{{ url_for('accountabilities.list_view') }}"
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('accountabilities.') %} active{% endif %}">
+      <span class="material-icons-round">description</span>
+      Accountabilities
+    </a>
+    <a href="{{ url_for('audits.list_view') }}"
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('audits.') %} active{% endif %}">
+      <span class="material-icons-round">fact_check</span>
+      Audits
+    </a>
+
+    {% if current_user.is_admin() %}
+    <div class="sidebar-section-label">Administration</div>
+    <a href="{{ url_for('users.list_view') }}"
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('users.') %} active{% endif %}">
+      <span class="material-icons-round">manage_accounts</span>
+      Users
+    </a>
+    <a href="{{ url_for('audits.trail') }}"
+       class="sidebar-link{% if request.endpoint == 'audits.trail' %} active{% endif %}">
+      <span class="material-icons-round">history</span>
+      Audit Trail
+    </a>
+    <a href="{{ url_for('ai.dashboard') }}"
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('ai.') %} active{% endif %}">
+      <span class="material-icons-round">psychology</span>
+      AI Insights
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      {{ current_user.full_name or current_user.username }}
+      <small>{{ current_user.role|title }}</small>
+    </div>
+    <a href="{{ url_for('auth.logout') }}" class="theme-toggle" title="Sign Out" style="text-decoration:none">
+      <span class="material-icons-round">logout</span>
+    </a>
+    <button class="theme-toggle" id="darkToggle" aria-label="Toggle theme">
+      <span class="material-icons-round" id="darkIcon">dark_mode</span>
+    </button>
+  </div>
+</aside>
+
+{# ─── Main Content ───────────────────────────────────────────────── #}
+<main class="main-content">
+
+{% else %}
+
+<main class="auth-main">
+
+{% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="snackbar snackbar-{{ category }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endwith %}
+
+    {% block content %}
+    {% endblock %}
+
+</main>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/animations.js') }}"></script>
+{% block extra_js %}
+{% endblock %}
+
+</body>
+</html>

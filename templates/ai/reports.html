@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}AI Reports — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('ai.dashboard') }}">AI Insights</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>Reports</span>
+</div>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1><span class="material-icons-round">description</span> AI Reports</h1>
+    <p>Auto-generated summaries and analyses</p>
+  </div>
+  <div class="page-header-actions">
+    <button class="btn btn-primary btn-sm" onclick="generateReport(this)">
+      <span class="material-icons-round">auto_awesome</span> Generate New
+    </button>
+  </div>
+</div>
+
+{% if reports %}
+{% for r in reports %}
+<div class="card mt-2">
+  <div class="card-header">
+    <div class="card-title">
+      <span class="material-icons-round">{{ 'summarize' if r.type == 'weekly_summary' else 'psychology' }}</span>
+      {{ r.type|replace('_', ' ')|title }}
+    </div>
+    <span class="text-muted text-small">{{ r.generated_at[:19].replace('T',' ') if r.generated_at else '' }}</span>
+  </div>
+  <div class="card-body" style="white-space:pre-wrap;font-size:14px;line-height:1.7">{{ r.content }}</div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state mt-3">
+  <span class="material-icons-round">description</span>
+  <h3>No reports yet</h3>
+  <p>Generate your first AI report</p>
+  <button class="btn btn-primary mt-2" onclick="generateReport(this)">
+    <span class="material-icons-round">auto_awesome</span> Generate Report
+  </button>
+</div>
+{% endif %}
+
+{% set endpoint = 'ai.reports' %}
+{% include "_pagination.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function generateReport(btn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-icons-round">hourglass_top</span> Generating...';
+  fetch('{{ url_for("ai.generate_report") }}',
+        { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
+    .then(r => r.json())
+    .then(() => location.reload())
+    .catch(() => { btn.disabled = false; alert('Report generation failed.'); });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Assets — IT Asset System{% endblock %}
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Assets</h1>
+    <p>Manage hardware inventory and assignments</p>
+  </div>
+  <div class="page-header-actions">
+    {% if current_user.can_edit() %}
+    <button type="button" onclick="window.location.href='{{ url_for('assets.new') }}'" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">add</span> New Asset
+    </button>
+    {% endif %}
+    <button type="button" onclick="window.location.href='{{ url_for('io.import_inventory') }}'" class="btn btn-tonal btn-sm">
+      <span class="material-icons-round">upload_file</span> Import
+    </button>
+    <button type="button" onclick="window.location.href='{{ url_for('io.export_assets') }}'" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">download</span> Export
+    </button>
+    <button type="button" onclick="window.location.href='{{ url_for('io.report_assets_pdf') }}'" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">picture_as_pdf</span> PDF
+    </button>
+  </div>
+</div>
+
+<!-- Filter Bar - Separate from buttons -->
+<div class="card">
+  <div class="filter-bar">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;width:100%;">
+      <div class="filter-search" style="flex:1;min-width:200px;">
+        <span class="material-icons-round">search</span>
+        <input type="search" name="q" value="{{ q }}" placeholder="Tag, serial, model…" style="width:100%;">
+      </div>
+      <select name="status" class="form-control" style="max-width:160px;" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        {% for s in ['Available','Assigned','Under Maintenance','Retired','Disposed','Lost'] %}
+        <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <select name="type" class="form-control" style="max-width:160px;" onchange="this.form.submit()">
+        <option value="">All Types</option>
+        {% for t in ['Laptop','Desktop','Monitor','Printer','Phone','Tablet','Network Equipment','Peripheral','Server','Other'] %}
+        <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-tonal btn-sm">
+        <span class="material-icons-round">filter_list</span> Filter
+      </button>
+      {% if q or status_filter or type_filter %}
+      <a href="{{ url_for('assets.list_view') }}" class="btn btn-outline btn-sm">
+        <span class="material-icons-round">clear</span> Clear
+      </a>
+      {% endif %}
+      <span class="text-muted" style="margin-left:auto;white-space:nowrap;">{{ total }} records</span>
+    </form>
+  </div>
+</div>
+
+<!-- Asset List -->
+<div class="card">
+  {% if assets %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Asset Tag</th>
+          <th>Serial Number</th>
+          <th>Type</th>
+          <th>Model</th>
+          <th>Location</th>
+          <th>Assigned To</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in assets %}
+      <tr>
+        <td>
+          <a href="{{ url_for('assets.detail', asset_id=a._id) }}" style="font-weight:600;">
+            {{ a.asset_tag }}
+          </a>
+          {% if a.endpoint_name %}
+          <div class="text-muted text-small">{{ a.endpoint_name }}</div>
+          {% endif %}
+        </td>
+        <td class="text-mono">{{ a.serial_number }}</td>
+        <td>{{ a.device_type }}</td>
+        <td>{{ a.model_name }}</td>
+        <td>{{ a.location or '—' }}</td>
+        <td>
+          {% if a.employee_name %}
+          <span style="font-size:13px;">{{ a.employee_name }}</span>
+          {% else %}
+          <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <span class="chip
+            {% if a.status == 'Assigned' %}chip-blue
+            {% elif a.status == 'Available' %}chip-green
+            {% elif a.status == 'Under Maintenance' %}chip-orange
+            {% elif a.status in ['Retired','Disposed','Lost'] %}chip-red
+            {% else %}chip-grey{% endif %}">
+            {{ a.status }}
+          </span>
+        </td>
+        <td>
+          <div class="flex" style="gap:6px;">
+            <a href="{{ url_for('assets.detail', asset_id=a._id) }}" class="btn btn-tonal btn-sm">
+              <span class="material-icons-round">visibility</span>
+            </a>
+            {% if current_user.can_edit() %}
+            <a href="{{ url_for('assets.edit', asset_id=a._id) }}" class="btn btn-outline btn-sm">
+              <span class="material-icons-round">edit</span>
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <!-- Empty State -->
+  <div class="empty-state" style="text-align:center;padding:60px 20px;">
+    <span class="material-icons-round" style="font-size:64px;opacity:0.3;">devices_other</span>
+    <h3 style="margin:16px 0 8px;">No assets found</h3>
+    <p style="color:var(--ink-muted);margin-bottom:16px;">
+      {% if q or status_filter or type_filter %}
+      Try adjusting your filters
+      {% else %}
+      Add your first asset or import from Excel
+      {% endif %}
+    </p>
+    {% if current_user.can_edit() and not q %}
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button type="button" onclick="window.location.href='{{ url_for('assets.new') }}'" class="btn btn-primary btn-sm">
+        <span class="material-icons-round">add</span> Add Asset
+      </button>
+      <button type="button" onclick="window.location.href='{{ url_for('io.import_inventory') }}'" class="btn btn-tonal btn-sm">
+        <span class="material-icons-round">upload_file</span> Import
+      </button>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% set endpoint = 'assets.list_view' %}
+  {% include "_pagination.html" %}
+</div>
+
+
+
+{% endblock %}

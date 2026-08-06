@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{{ type }}: {{ tag }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prata&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #F3EFE6;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100dvh;
+      padding: 16px;
+    }
+    .card {
+      background: #FAF8F3;
+      border: 2.5px solid #221E18;
+      border-radius: 16px 18px 14px 20px;
+      box-shadow: 4px 4px 0 #221E18;
+      max-width: 440px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+    .card-header {
+      background: {{ '#C73E3E' if type == 'Asset' else '#221E18' }};
+      color: white;
+      padding: 24px;
+      text-align: center;
+      border-bottom: 2.5px solid #221E18;
+    }
+    .card-header .icon { font-size: 48px; margin-bottom: 8px; }
+    .card-header h1 {
+      font-family: 'Prata', Georgia, serif;
+      font-size: 22px;
+      font-weight: 400;
+      word-break: break-word;
+      line-height: 1.2;
+    }
+    .card-header .type-badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 16px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.15);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      border: 1.5px solid rgba(255,255,255,.25);
+    }
+    .card-body { padding: 20px 24px; }
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #8A7F72;
+      margin: 16px 0 8px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .field {
+      display: flex;
+      justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 1.5px solid #D4C9B8;
+    }
+    .field:last-child { border-bottom: none; }
+    .field-label { color: #8A7F72; font-size: 13px; }
+    .field-value { font-weight: 600; font-size: 14px; text-align: right; max-width: 60%; color: #221E18; }
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      border: 1.5px solid;
+    }
+    .status-Assigned { background: #2B6C4B; border-color: #2B6C4B; }
+    .status-Available { background: #3A6B8C; border-color: #3A6B8C; }
+    .status-Under { background: #A6781A; border-color: #A6781A; }
+    .status-Archived { background: #B8AD9E; border-color: #B8AD9E; }
+    .status-Retired { background: #C73E3E; border-color: #C73E3E; }
+    .child-item {
+      background: #F3EFE6;
+      border: 2px solid #D4C9B8;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .child-item:last-child { margin-bottom: 0; }
+    .child-tag { font-weight: 700; font-size: 14px; color: #221E18; }
+    .child-detail { font-size: 12px; color: #8A7F72; margin-top: 2px; }
+    .child-row { display: flex; justify-content: space-between; font-size: 12px; color: #B8AD9E; margin-top: 4px; }
+    .child-row span { font-family: 'JetBrains Mono', monospace; }
+    .assigned-block {
+      background: #E4F0EA;
+      border: 2px solid #2B6C4B;
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .assigned-block .avatar {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: #2B6C4B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .assigned-block .name { font-weight: 700; font-size: 14px; color: #221E18; }
+    .assigned-block .emp-id { font-size: 12px; color: #8A7F72; }
+    .card-footer {
+      padding: 12px 24px 20px;
+      text-align: center;
+      border-top: 2px solid #D4C9B8;
+    }
+    .card-footer a {
+      color: #221E18;
+      font-size: 13px;
+      text-decoration: none;
+      font-weight: 600;
+      font-family: 'Prata', Georgia, serif;
+    }
+    .card-footer a:hover { color: #C73E3E; text-decoration: underline; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1A1714; }
+      .card { background: #24201C; border-color: #EDE4DC; box-shadow: 4px 4px 0 #EDE4DC; }
+      .card-header { border-bottom-color: #EDE4DC; }
+      .field { border-bottom-color: #3A3430; }
+      .field-label { color: #8A7F72; }
+      .field-value { color: #EDE4DC; }
+      .child-item { background: #2A2522; border-color: #3A3430; }
+      .child-detail { color: #8A7F72; }
+      .child-row { color: #5C534A; }
+      .assigned-block { background: #0E1E14; border-color: #2B6C4B; }
+      .card-footer { border-top-color: #3A3430; }
+      .card-footer a { color: #EDE4DC; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="icon material-icons-round">
+        {{ 'desktop_windows' if type == 'Workstation' else 'inventory_2' }}
+      </div>
+      <h1>{{ tag }}</h1>
+      <span class="type-badge">{{ type }}</span>
+    </div>
+
+    <div class="card-body">
+      <div class="section-title">Details</div>
+      <div class="field">
+        <span class="field-label">Type</span>
+        <span class="field-value">{{ device_type }}</span>
+      </div>
+      {% if brand %}
+      <div class="field">
+        <span class="field-label">Brand</span>
+        <span class="field-value">{{ brand }}</span>
+      </div>
+      {% endif %}
+      {% if model %}
+      <div class="field">
+        <span class="field-label">Model</span>
+        <span class="field-value">{{ model }}</span>
+      </div>
+      {% endif %}
+      {% if serial %}
+      <div class="field">
+        <span class="field-label">Serial</span>
+        <span class="field-value" style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ serial }}</span>
+      </div>
+      {% endif %}
+      <div class="field">
+        <span class="field-label">Status</span>
+        <span class="field-value">
+          <span class="status-dot status-{{ status.replace(' ','') }}"></span>{{ status }}
+        </span>
+      </div>
+      <div class="field">
+        <span class="field-label">Location</span>
+        <span class="field-value">{{ location or '—' }}</span>
+      </div>
+
+      {% if workstation_info %}
+      <div class="field">
+        <span class="field-label">Workstation</span>
+        <span class="field-value">{{ workstation_info }}</span>
+      </div>
+      {% endif %}
+
+      {% if assigned_to != 'Unassigned' %}
+      <div class="section-title">Assigned To</div>
+      <div class="assigned-block">
+        <div class="avatar">{{ assigned_to[:1] }}</div>
+        <div>
+          <div class="name">{{ assigned_to }}</div>
+          {% if employee_id %}<div class="emp-id">{{ employee_id }}</div>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if children is not none %}
+      <div class="section-title">Attached Assets ({{ children|length }})</div>
+      {% if children %}
+        {% for c in children %}
+        <div class="child-item">
+          <div class="child-tag">{{ c.asset_tag }}</div>
+          <div class="child-detail">{{ c.device_type }} · {{ c.model_name }}</div>
+          <div class="child-row">
+            <span>S/N: {{ c.serial_number or '—' }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p style="color:#B8AD9E;font-size:13px;text-align:center;padding:12px 0">No assets attached</p>
+      {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="card-footer">
+      <a href="/">IT Asset System</a>
+    </div>
+  </div>
+</body>
+</html>

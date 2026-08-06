@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}{{ ws.workstation_code }} — Workstation Details{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('workstations.list_view') }}">Workstations</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>{{ ws.workstation_code }}</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ ws.workstation_code }}</h1>
+    <p>{{ ws.workstation_name or 'Unnamed' }} • {{ ws.location }}</p>
+  </div>
+  <div class="page-header-actions">
+    {% if current_user.can_edit() %}
+    <a href="{{ url_for('workstations.edit', ws_id=ws.id) }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">edit</span> Edit
+    </a>
+    <a href="{{ url_for('io.workstation_stickers') }}?ids={{ ws.id }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">qr_code</span> Sticker
+    </a>
+    <a href="{{ url_for('workstations.transfer_batch', ws_id=ws.id) }}" class="btn btn-warning btn-sm">
+      <span class="material-icons-round">sync</span> Transfer All Assets
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card-grid">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="material-icons-round">info</span> Workstation Information</div>
+    </div>
+    <div class="card-body">
+      <div class="info-grid">
+        <div><label>Code</label><span>{{ ws.workstation_code }}</span></div>
+        <div><label>Name</label><span>{{ ws.workstation_name or 'N/A' }}</span></div>
+        <div><label>Location</label><span>{{ ws.location }}</span></div>
+        <div><label>Department</label><span>{{ ws.department or 'N/A' }}</span></div>
+        <div><label>Status</label><span class="badge badge-{{ ws.status|lower }}">{{ ws.status }}</span></div>
+        <div><label>Assets Count</label><span>{{ assets|length }}</span></div>
+        {% if emp %}
+        <div><label>Assigned To</label>
+          <span><a href="{{ url_for('employees.detail', employee_id=emp.id) }}">{{ emp.full_name }}</a></span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:300px;">
+    <div class="card-header">
+      <div class="card-title"><span class="material-icons-round">qr_code</span> QR Code</div>
+    </div>
+    <div class="card-body" style="text-align:center;">
+      <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code" style="max-width:200px;">
+      <p><small>Scan for workstation details</small></p>
+      <a href="{{ url_for('io.workstation_stickers') }}?ids={{ ws.id }}" class="btn btn-outline btn-sm" style="margin-top:8px">
+        <span class="material-icons-round">print</span> Print Sticker
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Assets at Workstation -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">devices</span> Assets ({{ assets|length }})</div>
+  </div>
+  <div class="card-body">
+    {% if assets %}
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset Tag</th>
+            <th>Type</th>
+            <th>Model</th>
+            <th>Serial Number</th>
+            <th>Assigned To</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in assets %}
+          <tr>
+            <td><a href="{{ url_for('assets.detail', asset_id=asset.id) }}">{{ asset.asset_tag }}</a></td>
+            <td>{{ asset.device_type }}</td>
+            <td>{{ asset.model_name }}</td>
+            <td>{{ asset.serial_number }}</td>
+            <td>{{ asset.employee_name or 'Unassigned' }}</td>
+            <td><span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span></td>
+            <td>
+              <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" class="btn btn-sm btn-outline">
+                <span class="material-icons-round">visibility</span>
+              </a>
+              {% if current_user.can_edit() %}
+              <form method="POST" action="{{ url_for('workstations.unlink_asset', ws_id=ws.id, asset_id=asset.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this asset from workstation?')">
+                  <span class="material-icons-round">remove</span>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="material-icons-round">devices</span>
+      <p>No assets assigned to this workstation.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Add Asset to Workstation -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">add</span> Add Asset to Workstation</div>
+  </div>
+  <div class="card-body">
+    {% if available_assets %}
+    <form method="POST" action="{{ url_for('workstations.assign_asset', ws_id=ws.id) }}" class="form-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group" style="flex:1; margin-right:8px;">
+        <select name="asset_id" class="form-control" required>
+          <option value="">-- Select Available Asset --</option>
+          {% for asset in available_assets %}
+          <option value="{{ asset.id }}">{{ asset.asset_tag }} - {{ asset.model_name }} ({{ asset.serial_number }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">add</span> Add to Workstation
+      </button>
+    </form>
+    {% else %}
+    <p class="text-muted">No available assets to add.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Remarks -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">comment</span> Remarks</div>
+  </div>
+  <div class="card-body">
+    {% if remarks %}
+      {% for r in remarks %}
+        <div class="remark">
+          <div class="remark-text">{{ r.remark }}</div>
+          <div class="remark-meta">{{ r.author }} • {{ r.created_at[:10] }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted">No remarks yet.</p>
+    {% endif %}
+
+    {% if current_user.can_edit() %}
+    <form method="POST" action="{{ url_for('remarks.add') }}" class="remark-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="record_id" value="{{ ws.id }}">
+      <input type="hidden" name="record_type" value="Workstations">
+      <div class="form-group">
+        <textarea name="remark" class="form-control" rows="2" placeholder="Add a remark..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-sm btn-outline">Add Remark</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

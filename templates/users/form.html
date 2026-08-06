@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('users.list_view') }}">Users</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>{{ title }}</span>
+</div>
+<div class="page-header">
+  <div class="page-header-left"><h1>{{ title }}</h1></div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('users.list_view') }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">arrow_back</span> Back
+    </a>
+  </div>
+</div>
+
+<div class="card" style="max-width:600px">
+  <div class="card-header"><div class="card-title"><span class="material-icons-round">manage_accounts</span> User Account</div></div>
+  <form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Username *</label>
+          {{ form.username(class="form-control" + (" error" if form.username.errors else "")) }}
+          {% for e in form.username.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Full Name *</label>
+          {{ form.full_name(class="form-control" + (" error" if form.full_name.errors else "")) }}
+          {% for e in form.full_name.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          {{ form.email(class="form-control" + (" error" if form.email.errors else "")) }}
+          {% for e in form.email.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Password {% if user_doc %}(leave blank to keep){% else %}*{% endif %}</label>
+          {{ form.password(class="form-control", placeholder="Min 8 characters") }}
+          {% for e in form.password.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          {{ form.role(class="form-control") }}
+          <span class="form-hint">Admin: full access. Editor: CRUD. Viewer: read-only.</span>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:8px">
+          {{ form.is_active() }}
+          <label style="margin:0;font-size:14px">Active account</label>
+        </div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">save</span>
+        {% if user_doc %}Save Changes{% else %}Create User{% endif %}
+      </button>
+      <a href="{{ url_for('users.list_view') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

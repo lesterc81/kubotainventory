@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Workstation Stickers — IT Asset System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope', sans-serif; background: #fff; color: #17120E; }
+  .no-print { padding: 16px; background: #EAB308; color: #17120E; display: flex; align-items: center; gap: 12px; }
+  .no-print button { padding: 8px 20px; background: #17120E; color: white; border: none; border-radius: 50px; font-weight: 700; cursor: pointer; font-family: 'Manrope', sans-serif; font-size: 13px; }
+  .no-print button:hover { opacity: 0.9; }
+  .stickers-grid { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; }
+  .sticker-card {
+    border: 2.5px solid #EAB308;
+    border-radius: 8px;
+    padding: 10px;
+    width: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .sticker-card img { width: 110px; height: 110px; display: block; }
+  .sticker-code { font-weight: 800; font-size: 14px; letter-spacing: 0.04em; color: #EAB308; }
+  .sticker-name { font-size: 11px; color: #17120E; }
+  .sticker-loc { font-size: 10px; color: #6B6258; border-top: 1px solid #DED5CC; padding-top: 4px; width: 100%; }
+  .sticker-dept { font-size: 10px; color: #6B6258; }
+  .sticker-logo { font-size: 9px; color: #9C9388; margin-top: 2px; }
+  @media print {
+    .no-print { display: none !important; }
+    .sticker-card { border: 2px solid #000; }
+    .sticker-code { color: #000; }
+  }
+</style>
+</head>
+<body>
+<div class="no-print">
+  <span style="font-weight:700">Workstation QR Stickers ({{ stickers|length }})</span>
+  <button onclick="window.print()">Print Stickers</button>
+  <a href="javascript:history.back()" style="color:rgba(23,18,14,0.7);text-decoration:none;margin-left:auto;font-size:13px">Back</a>
+</div>
+<div class="stickers-grid">
+  {% for s in stickers %}
+  <div class="sticker-card">
+    <img src="data:image/png;base64,{{ s.qr }}" alt="QR">
+    <div class="sticker-code">{{ s.ws.workstation_code }}</div>
+    {% if s.ws.workstation_name %}
+    <div class="sticker-name">{{ s.ws.workstation_name }}</div>
+    {% endif %}
+    <div class="sticker-loc">{{ s.ws.location }}</div>
+    {% if s.ws.department %}
+    <div class="sticker-dept">{{ s.ws.department }}</div>
+    {% endif %}
+    <div class="sticker-logo">IT Asset System</div>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>

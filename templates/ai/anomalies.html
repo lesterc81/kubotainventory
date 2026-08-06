@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Anomalies — AI Insights{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('ai.dashboard') }}">AI Insights</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>Anomalies</span>
+</div>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1><span class="material-icons-round">bug_report</span> Anomalies</h1>
+    <p>Detected suspicious or unusual activity</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('ai.anomalies', show='active') }}" class="btn btn-sm {% if show == 'active' %}btn-primary{% else %}btn-outline{% endif %}">Active</a>
+    <a href="{{ url_for('ai.anomalies', show='all') }}" class="btn btn-sm {% if show == 'all' %}btn-primary{% else %}btn-outline{% endif %}">All</a>
+    <button class="btn btn-sm btn-outline" onclick="clearAcknowledged()">
+      <span class="material-icons-round">clear_all</span> Clear Ack'd
+    </button>
+    <button class="btn btn-sm btn-danger" onclick="deleteAll()">
+      <span class="material-icons-round">delete_sweep</span> Delete All
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  {% if anomalies %}
+  <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Detected</th>
+            <th>Severity</th>
+            <th>Label</th>
+            <th>Asset</th>
+            <th>Detail</th>
+            <th>Count</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for a in anomalies %}
+        <tr style="opacity:{{ '0.5' if a.acknowledged else '1' }}">
+          <td class="text-small text-mono">{{ a.detected_at[:19].replace('T',' ') if a.detected_at else '' }}</td>
+          <td>
+            <span class="chip {% if a.severity == 'high' %}chip-red{% elif a.severity == 'medium' %}chip-orange{% elif a.severity == 'low' %}chip-grey{% else %}chip-primary{% endif %}">
+              {{ a.severity }}
+            </span>
+          </td>
+          <td><strong>{{ a.label }}</strong></td>
+          <td>
+            {% if a.record_tag %}
+              <span class="text-nowrap">{{ a.record_tag }}</span>
+              {% if a.record_subtype %}<br><span class="text-muted text-small">{{ a.record_subtype }}</span>{% endif %}
+              {% if a.record_model %}<br><span class="text-muted text-small">{{ a.record_model }}</span>{% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="text-muted text-small">{{ a.detail }}</td>
+          <td>{{ a.count }}</td>
+        <td>
+          {% if not a.acknowledged %}
+          <button class="btn btn-tonal btn-sm" onclick="acknowledge('{{ a.id }}', this)">
+            <span class="material-icons-round">done</span> Ack
+          </button>
+          {% else %}
+          <span class="text-muted text-small">Acknowledged</span>
+          <button class="btn btn-outline btn-sm" onclick="removeAnomaly('{{ a.id }}', this)" title="Delete">
+            <span class="material-icons-round">delete</span>
+          </button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-icons-round">verified</span>
+    <h3>No anomalies</h3>
+    <p>{% if show == 'active' %}All clear — no unresolved anomalies{% else %}No anomaly records found{% endif %}</p>
+  </div>
+  {% endif %}
+
+  {% set endpoint = 'ai.anomalies' %}
+  {% include "_pagination.html" %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function acknowledge(id, btn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-icons-round">hourglass_top</span>...';
+  fetch('{{ url_for("ai.acknowledge", anomaly_id="") }}' + id,
+        { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
+    .then(r => r.json())
+    .then(() => location.reload())
+    .catch(() => { btn.disabled = false; alert('Failed to acknowledge anomaly.'); });
+}
+
+function removeAnomaly(id, btn) {
+  if (!confirm('Delete this anomaly record?')) return;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  fetch('{{ url_for("ai.delete_anomaly", anomaly_id="") }}' + id,
+        { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
+    .then(r => r.json())
+    .then(() => location.reload())
+    .catch(() => { btn.disabled = false; alert('Failed to delete anomaly.'); });
+}
+
+function clearAcknowledged() {
+  if (!confirm('Delete all acknowledged anomaly records?')) return;
+  fetch('{{ url_for("ai.clear_acknowledged") }}',
+        { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
+    .then(r => r.json())
+    .then(data => {
+      if (data.deleted > 0) location.reload();
+      else alert('No acknowledged records to clear. Use "Ack" button on anomalies first.');
+    })
+    .catch(() => alert('Failed to clear acknowledged anomalies.'));
+}
+
+function deleteAll() {
+  if (!confirm('Permanently delete ALL anomaly records?')) return;
+  fetch('{{ url_for("ai.delete_all_anomalies") }}',
+        { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
+    .then(r => r.json())
+    .then(data => { if (data.deleted > 0) location.reload(); else alert('No anomalies to delete.'); })
+    .catch(() => alert('Failed to delete anomalies.'));
+}
+</script>
+{% endblock %}

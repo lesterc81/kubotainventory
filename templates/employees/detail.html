@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}{{ emp.full_name }} — Employee Details{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('employees.list_view') }}">Employees</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>{{ emp.full_name }}</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ emp.full_name }}</h1>
+    <p>{{ emp.employee_id }} • {{ emp.position }} • {{ emp.department }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('employees.edit', employee_id=emp.id) }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">edit</span> Edit
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">badge</span> Employee Information</div>
+  </div>
+  <div class="card-body">
+    <div class="info-grid">
+      <div><label>Employee ID</label><span>{{ emp.employee_id }}</span></div>
+      <div><label>Full Name</label><span>{{ emp.full_name }}</span></div>
+      <div><label>Email</label><span>{{ emp.email }}</span></div>
+      <div><label>Department</label><span>{{ emp.department }}</span></div>
+      <div><label>Position</label><span>{{ emp.position }}</span></div>
+      <div><label>Site</label><span>{{ emp.site }}</span></div>
+      <div><label>Contact</label><span>{{ emp.contact_number or 'N/A' }}</span></div>
+      <div><label>Status</label><span class="badge badge-{{ emp.status|lower }}">{{ emp.status }}</span></div>
+      <div><label>Date Hired</label><span>{{ emp.date_hired or 'N/A' }}</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Assigned Assets -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">devices</span> Assigned Assets ({{ assets|length }})</div>
+  </div>
+  <div class="card-body">
+    {% if assets %}
+    <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Asset Tag</th>
+          <th>Type</th>
+          <th>Model</th>
+          <th>Serial Number</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for asset in assets %}
+        <tr>
+          <td><a href="{{ url_for('assets.detail', asset_id=asset.id) }}">{{ asset.asset_tag }}</a></td>
+          <td>{{ asset.device_type }}</td>
+          <td>{{ asset.model_name }}</td>
+          <td>{{ asset.serial_number }}</td>
+          <td><span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span></td>
+          <td>
+            <a href="{{ url_for('assets.transfer', asset_id=asset.id) }}" class="btn btn-sm btn-warning">
+              <span class="material-icons-round">swap_horiz</span> Transfer
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No assets assigned to this employee.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Accountabilities -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">assignment</span> Accountabilities</div>
+  </div>
+  <div class="card-body">
+    {% if accountabilities %}
+    <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Date</th>
+          <th>Status</th>
+          <th>Assets</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for acc in accountabilities %}
+        <tr>
+          <td>{{ acc.accountability_type }}</td>
+          <td>{{ acc.effective_date[:10] if acc.effective_date else 'N/A' }}</td>
+          <td><span class="badge badge-{{ acc.status|lower }}">{{ acc.status }}</span></td>
+          <td>{{ acc.asset_ids|length }}</td>
+          <td>
+            <a href="{{ url_for('accountabilities.detail', acc_id=acc.id) }}" class="btn btn-sm btn-outline">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No accountability records.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Remarks -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">comment</span> Remarks</div>
+  </div>
+  <div class="card-body">
+    {% if remarks %}
+      {% for r in remarks %}
+        <div class="remark">
+          <div class="remark-text">{{ r.remark }}</div>
+          <div class="remark-meta">{{ r.author }} • {{ r.created_at[:10] }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted">No remarks yet.</p>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('remarks.add') }}" class="remark-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="record_id" value="{{ emp.id }}">
+      <input type="hidden" name="record_type" value="Employees">
+      <div class="form-group">
+        <textarea name="remark" class="form-control" rows="2" placeholder="Add a remark..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-sm btn-outline">Add Remark</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

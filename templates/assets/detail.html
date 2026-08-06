@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.asset_tag }} — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('assets.list_view') }}">Assets</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>{{ asset.asset_tag }}</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ asset.asset_tag }}</h1>
+    <p>{{ asset.device_type }} · {{ asset.model_name }}</p>
+  </div>
+  <div class="page-header-actions">
+    {% if current_user.can_edit() %}
+    <a href="{{ url_for('assets.edit', asset_id=asset._id) }}" class="btn btn-tonal btn-sm">
+      <span class="material-icons-round">edit</span> Edit
+    </a>
+    <button class="btn btn-outline btn-sm" data-dialog-open="transferDialog">
+      <span class="material-icons-round">swap_horiz</span> Transfer
+    </button>
+    <button class="btn btn-outline btn-sm" data-dialog-open="archiveDialog">
+      <span class="material-icons-round">archive</span> Archive
+    </button>
+    {% endif %}
+    <a href="{{ url_for('io.asset_stickers') }}?ids={{ asset._id }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">qr_code_2</span> Sticker
+    </a>
+  </div>
+</div>
+
+<div class="detail-grid">
+  <!-- Left -->
+  <div>
+    <div class="card mb-3">
+      <div class="card-header">
+        <div class="card-title"><span class="material-icons-round">devices</span> Asset Details</div>
+        <span class="chip {% if asset.status == 'Assigned' %}chip-blue{% elif asset.status == 'Available' %}chip-green{% elif asset.status == 'Under Maintenance' %}chip-orange{% elif asset.status in ['Retired','Disposed','Lost'] %}chip-red{% else %}chip-grey{% endif %}">
+          {{ asset.status }}
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="info-list">
+          <div class="info-row"><span class="info-label">Asset Tag</span><span class="info-value font-bold text-mono">{{ asset.asset_tag }}</span></div>
+          <div class="info-row"><span class="info-label">Serial Number</span><span class="info-value text-mono">{{ asset.serial_number }}</span></div>
+          <div class="info-row"><span class="info-label">Endpoint Name</span><span class="info-value">{{ asset.endpoint_name or '—' }}</span></div>
+          <div class="info-row"><span class="info-label">Device Type</span><span class="info-value">{{ asset.device_type }}</span></div>
+          <div class="info-row"><span class="info-label">Model</span><span class="info-value">{{ asset.model_name }}</span></div>
+          <div class="info-row"><span class="info-label">Manufacturer</span><span class="info-value">{{ asset.manufacturer or '—' }}</span></div>
+          <div class="info-row"><span class="info-label">OS Version</span><span class="info-value">{{ asset.os_version or '—' }}</span></div>
+          <div class="info-row"><span class="info-label">CPU</span><span class="info-value">{{ asset.cpu or '—' }}</span></div>
+          <div class="info-row"><span class="info-label">RAM</span><span class="info-value">{{ asset.ram or '—' }}</span></div>
+          <div class="info-row"><span class="info-label">Storage</span><span class="info-value">{{ asset.storage or '—' }}</span></div>
+          <div class="info-row"><span class="info-label">Location</span><span class="info-value">{{ asset.location or '—' }}</span></div>
+          <div class="info-row"><span class="info-label">Purchase Date</span><span class="info-value">{{ asset.purchase_date[:10] if asset.purchase_date else '—' }}</span></div>
+          <div class="info-row"><span class="info-label">Warranty Expiry</span>
+            <span class="info-value">
+              {% if asset.warranty_expiry %}
+              <span class="chip chip-orange">{{ asset.warranty_expiry[:10] }}</span>
+              {% else %}—{% endif %}
+            </span>
+          </div>
+          <div class="info-row"><span class="info-label">Vendor</span><span class="info-value">{{ asset.vendor or '—' }}</span></div>
+          <div class="info-row"><span class="info-label">Purchase Cost</span><span class="info-value">{% if asset.purchase_cost %}₱{{ asset.purchase_cost }}{% else %}—{% endif %}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assigned Employee -->
+    {% if emp %}
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">person</span> Assigned To</div></div>
+      <div class="card-body">
+        <div class="info-list">
+          <div class="info-row"><span class="info-label">Name</span><span class="info-value"><a href="{{ url_for('employees.detail', employee_id=emp._id) }}">{{ emp.full_name }}</a></span></div>
+          <div class="info-row"><span class="info-label">Employee ID</span><span class="info-value text-mono">{{ emp.employee_id }}</span></div>
+          <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department }}</span></div>
+          <div class="info-row"><span class="info-label">Site</span><span class="info-value">{{ emp.site }}</span></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Workstation Info -->
+    {% if ws %}
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">desktop_windows</span> Workstation</div></div>
+      <div class="card-body">
+        <div class="info-list">
+          <div class="info-row"><span class="info-label">Code</span><span class="info-value"><a href="{{ url_for('workstations.detail', ws_id=ws._id) }}">{{ ws.workstation_code }}</a></span></div>
+          <div class="info-row"><span class="info-label">Location</span><span class="info-value">{{ ws.location }}</span></div>
+          <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ ws.department or '—' }}</span></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Transfer History -->
+    {% if asset.history %}
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">history</span> Transfer History</div></div>
+      <div class="card-body">
+        <div class="timeline">
+          {% for h in asset.history|reverse %}
+          <div class="timeline-item">
+            <div class="timeline-dot"><span class="material-icons-round">swap_horiz</span></div>
+            <div class="timeline-body">
+              <div class="timeline-text">
+                <strong>{{ h.type }}</strong> 
+                {% if h.from_employee and h.to_employee %}
+                  from {{ h.from_employee }} to {{ h.to_employee }}
+                {% elif h.from_workstation and h.to_workstation %}
+                  from {{ h.from_workstation }} to {{ h.to_workstation }}
+                {% elif h.to_employee %}
+                  assigned to {{ h.to_employee }}
+                {% elif h.to_workstation %}
+                  moved to {{ h.to_workstation }}
+                {% else %}
+                  transferred
+                {% endif %}
+                {% if h.location %} to {{ h.location }}{% endif %}
+              </div>
+              <div class="timeline-meta">
+                {% if h.reason %}Reason: {{ h.reason }} · {% endif %}
+                By {{ h.by }} · {{ h.date[:19].replace('T',' ') if h.date else '' }}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabs -->
+    <div class="card">
+      <div class="tab-bar">
+        <div class="tab-item active" data-tab="tab-remarks">Remarks ({{ remarks|length }})</div>
+        <div class="tab-item" data-tab="tab-audits">Audits ({{ audits|length }})</div>
+      </div>
+
+      <div id="tab-remarks" class="tab-panel active tab-content">
+        {% if current_user.can_edit() %}
+        <form method="POST" action="{{ url_for('remarks.add') }}" style="padding:16px;border-bottom:1px solid var(--border)">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="record_id" value="{{ asset._id }}">
+          <input type="hidden" name="record_type" value="Assets">
+          <div class="form-group mb-2">
+            <textarea name="remark" class="form-control" rows="2" placeholder="Enter a remark…" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm"><span class="material-icons-round">add_comment</span> Add</button>
+        </form>
+        {% endif %}
+        {% if remarks %}
+        <div style="padding:16px">
+          <div class="timeline">
+            {% for r in remarks %}
+            <div class="timeline-item">
+              <div class="timeline-dot"><span class="material-icons-round">comment</span></div>
+              <div class="timeline-body">
+                <div class="timeline-text">{{ r.remark }}</div>
+                <div class="timeline-meta">{{ r.author }} · {{ r.created_at[:19].replace('T',' ') if r.created_at else '' }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state"><span class="material-icons-round">comment</span><p>No remarks</p></div>
+        {% endif %}
+      </div>
+
+      <div id="tab-audits" class="tab-panel tab-content">
+        {% if audits %}
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Date</th><th>Type</th><th>Result</th><th>Auditor</th></tr></thead>
+            <tbody>
+            {% for a in audits %}
+            <tr>
+              <td>{{ a.audit_date[:10] if a.audit_date else '—' }}</td>
+              <td>{{ a.audit_type }}</td>
+              <td><span class="chip {% if a.result == 'Pass' %}chip-green{% elif a.result == 'Fail' %}chip-red{% else %}chip-orange{% endif %}">{{ a.result }}</span></td>
+              <td>{{ a.auditor }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state"><span class="material-icons-round">fact_check</span><p>No audits recorded</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: QR + Notes -->
+  <div>
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">qr_code_2</span> Asset QR Code</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;align-items:center;gap:12px">
+        <div class="qr-box">
+          <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code">
+          <div class="qr-label">{{ asset.asset_tag }}</div>
+        </div>
+        <div class="text-muted text-small" style="text-align:center">Scan to view asset details</div>
+        <a href="{{ url_for('io.asset_stickers') }}?ids={{ asset._id }}" class="btn btn-outline btn-sm w-full" style="justify-content:center">
+          <span class="material-icons-round">print</span> Print Sticker
+        </a>
+      </div>
+    </div>
+    {% if asset.notes %}
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">notes</span> Notes</div></div>
+      <div class="card-body"><p style="font-size:13px;color:var(--ink-muted)">{{ asset.notes }}</p></div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Transfer Dialog -->
+<div class="dialog-overlay" id="transferDialog">
+  <div class="dialog">
+    <div class="dialog-header">Transfer Asset</div>
+    <form method="POST" action="{{ url_for('assets.transfer', asset_id=asset._id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="dialog-body" style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group">
+          <label>Transfer Type</label>
+          <select name="target_type" class="form-control" id="targetType" required>
+            <option value="">-- Select Type --</option>
+            <option value="employee">Employee</option>
+            <option value="workstation">Workstation</option>
+            <option value="stockroom">Stockroom (Unassign)</option>
+          </select>
+        </div>
+        <div class="form-group" id="employeeSearchGroup">
+          <label>Search Employee</label>
+          <input type="text" id="employeeSearch" class="form-control" placeholder="Search employee…" autocomplete="off">
+          <input type="hidden" name="target_id" id="targetId">
+          <div id="empResults" style="border:1px solid var(--border);border-radius:8px;background:var(--card);display:flex;flex-direction:column;max-height:160px;overflow-y:auto;margin-top:4px;"></div>
+        </div>
+        <div class="form-group" id="workstationSelectGroup" style="display:none;">
+          <label>Select Workstation</label>
+          <select name="target_id" class="form-control">
+            <option value="">-- Select Workstation --</option>
+            {% for ws_item in available_workstations %}
+            <option value="{{ ws_item.id }}">{{ ws_item.workstation_code }} - {{ ws_item.location }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <input type="text" name="reason" class="form-control" placeholder="e.g., New hire, Upgrade, Relocation">
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea name="notes" class="form-control" rows="2" placeholder="Additional details…"></textarea>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn btn-outline" data-dialog-close="transferDialog">Cancel</button>
+        <button type="submit" class="btn btn-primary">Transfer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Archive Dialog -->
+<div class="dialog-overlay" id="archiveDialog">
+  <div class="dialog">
+    <div class="dialog-header">Archive Asset</div>
+    <form method="POST" action="{{ url_for('assets.archive', asset_id=asset._id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>Reason</label>
+          <select name="reason" class="form-control">
+            <option value="Retired">Retired</option>
+            <option value="Disposed">Disposed</option>
+            <option value="Lost">Lost</option>
+            <option value="Under Maintenance">Under Maintenance</option>
+          </select>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="btn btn-outline" data-dialog-close="archiveDialog">Cancel</button>
+        <button type="submit" class="btn btn-danger">Confirm</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Tab switching
+  document.querySelectorAll('.tab-item').forEach(tab => {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      this.classList.add('active');
+      document.getElementById(this.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Transfer dialog - toggle employee/workstation fields based on type
+  const targetType = document.getElementById('targetType');
+  const employeeGroup = document.getElementById('employeeSearchGroup');
+  const workstationGroup = document.getElementById('workstationSelectGroup');
+  
+  if (targetType) {
+    targetType.addEventListener('change', function() {
+      if (this.value === 'employee') {
+        employeeGroup.style.display = 'block';
+        workstationGroup.style.display = 'none';
+      } else if (this.value === 'workstation') {
+        employeeGroup.style.display = 'none';
+        workstationGroup.style.display = 'block';
+      } else if (this.value === 'stockroom') {
+        employeeGroup.style.display = 'none';
+        workstationGroup.style.display = 'none';
+        document.getElementById('targetId').value = 'stockroom';
+      } else {
+        employeeGroup.style.display = 'none';
+        workstationGroup.style.display = 'none';
+      }
+    });
+  }
+
+  // Employee search autocomplete
+  const searchInput = document.getElementById('employeeSearch');
+  const hiddenId = document.getElementById('targetId');
+  const resultsBox = document.getElementById('empResults');
+  let debounceTimer;
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      const q = this.value.trim();
+      hiddenId.value = '';
+      if (!q) { 
+        resultsBox.innerHTML = ''; 
+        return; 
+      }
+      debounceTimer = setTimeout(() => {
+        fetch(`/api/employees/search?q=${encodeURIComponent(q)}`)
+          .then(r => r.json())
+          .then(body => {
+            const data = body && Array.isArray(body.data) ? body.data : [];
+            resultsBox.innerHTML = '';
+            if (data.length === 0) {
+              const empty = document.createElement('div');
+              empty.className = 'autocomplete-item';
+              empty.textContent = 'No employees found';
+              empty.style.color = 'var(--ink-muted)';
+              resultsBox.appendChild(empty);
+              return;
+            }
+            data.forEach(emp => {
+              const item = document.createElement('div');
+              item.className = 'autocomplete-item';
+              item.textContent = emp.text;
+              item.addEventListener('click', function() {
+                hiddenId.value = emp.id;
+                searchInput.value = emp.text;
+                resultsBox.innerHTML = '';
+              });
+              resultsBox.appendChild(item);
+            });
+          })
+          .catch(() => {
+            resultsBox.innerHTML = '<div class="autocomplete-item" style="color:var(--error)">Error loading employees</div>';
+          });
+      }, 300);
+    });
+
+    // Close results on outside click
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#employeeSearchGroup')) {
+        resultsBox.innerHTML = '';
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

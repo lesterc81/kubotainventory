@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Search — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Search Results</h1>
+    <p>{% if q %}Showing results for "<strong>{{ q }}</strong>"{% else %}Enter a query to search{% endif %}</p>
+  </div>
+</div>
+
+<form action="{{ url_for('dashboard.search') }}" method="get" class="card mb-3" style="padding:20px">
+  <div class="filter-search" style="max-width:500px">
+    <span class="material-icons-round">search</span>
+    <input type="search" name="q" value="{{ q }}" placeholder="Search asset tag, serial, employee name, workstation…" autofocus style="width:100%">
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+  </div>
+</form>
+
+{% if q %}
+<!-- Assets -->
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">devices</span> Assets ({{ results.assets|length }})</div>
+  </div>
+  {% if results.assets %}
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Asset Tag</th><th>Serial Number</th><th>Type</th><th>Model</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for a in results.assets %}
+      <tr>
+        <td><a href="{{ url_for('assets.detail', asset_id=a._id) }}">{{ a.asset_tag }}</a></td>
+        <td class="text-mono">{{ a.serial_number }}</td>
+        <td>{{ a.device_type }}</td>
+        <td>{{ a.model_name }}</td>
+        <td>
+          <span class="chip {% if a.status == 'Assigned' %}chip-blue{% elif a.status == 'Available' %}chip-green{% elif a.status == 'Under Maintenance' %}chip-orange{% else %}chip-grey{% endif %}">
+            {{ a.status }}
+          </span>
+        </td>
+        <td><a href="{{ url_for('assets.detail', asset_id=a._id) }}" class="btn btn-tonal btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:24px"><span class="material-icons-round">devices_other</span><p>No assets found</p></div>
+  {% endif %}
+</div>
+
+<!-- Employees -->
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">badge</span> Employees ({{ results.employees|length }})</div>
+  </div>
+  {% if results.employees %}
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Employee ID</th><th>Full Name</th><th>Department</th><th>Site</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for e in results.employees %}
+      <tr>
+        <td class="text-mono">{{ e.employee_id }}</td>
+        <td><a href="{{ url_for('employees.detail', employee_id=e._id) }}">{{ e.full_name }}</a></td>
+        <td>{{ e.department }}</td>
+        <td>{{ e.site }}</td>
+        <td><span class="chip {% if e.status == 'Active' %}chip-green{% elif e.status == 'Resigned' %}chip-red{% else %}chip-grey{% endif %}">{{ e.status }}</span></td>
+        <td><a href="{{ url_for('employees.detail', employee_id=e._id) }}" class="btn btn-tonal btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:24px"><span class="material-icons-round">person_off</span><p>No employees found</p></div>
+  {% endif %}
+</div>
+
+<!-- Workstations -->
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">workspaces</span> Workstations ({{ results.workstations|length }})</div>
+  </div>
+  {% if results.workstations %}
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Code</th><th>Name</th><th>Location</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for w in results.workstations %}
+      <tr>
+        <td class="text-mono"><a href="{{ url_for('workstations.detail', ws_id=w._id) }}">{{ w.workstation_code }}</a></td>
+        <td>{{ w.workstation_name }}</td>
+        <td>{{ w.location }}</td>
+        <td><span class="chip {% if w.status == 'Active' %}chip-green{% elif w.status == 'Archived' %}chip-grey{% else %}chip-orange{% endif %}">{{ w.status }}</span></td>
+        <td><a href="{{ url_for('workstations.detail', ws_id=w._id) }}" class="btn btn-tonal btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:24px"><span class="material-icons-round">workspaces</span><p>No workstations found</p></div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}  

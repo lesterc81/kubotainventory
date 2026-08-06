@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Audits — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Audits</h1>
+    <p>Physical and accountability audit records</p>
+  </div>
+  <div class="page-header-actions">
+    {% if current_user.can_edit() %}
+    <a href="{{ url_for('audits.new') }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">add</span> New Audit
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="filter-bar">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="filter-search">
+        <span class="material-icons-round">search</span>
+        <input type="search" name="q" value="{{ q }}" placeholder="Type, result, findings, auditor…">
+      </div>
+      <button type="submit" class="btn btn-tonal btn-sm">Search</button>
+      {% if q %}<a href="{{ url_for('audits.list_view') }}" class="btn btn-outline btn-sm">Clear</a>{% endif %}
+    </form>
+    <span class="text-muted" style="margin-left:auto">{{ total }} records</span>
+  </div>
+
+  {% if audits %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Asset / Workstation</th>
+          <th>Result</th>
+          <th>Findings</th>
+          <th>Auditor</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in audits %}
+      <tr>
+        <td>{{ a.audit_date[:10] if a.audit_date else '—' }}</td>
+        <td>{{ a.audit_type }}</td>
+        <td class="text-muted text-small">
+          {% if a.asset_id %}Asset: {{ a.asset_id }}{% endif %}
+          {% if a.workstation_id %}WS: {{ a.workstation_id }}{% endif %}
+          {% if not a.asset_id and not a.workstation_id %}—{% endif %}
+        </td>
+        <td>
+          <span class="chip {% if a.result == 'Pass' %}chip-green{% elif a.result == 'Fail' %}chip-red{% else %}chip-orange{% endif %}">
+            {{ a.result }}
+          </span>
+        </td>
+        <td class="text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          {{ a.findings or '—' }}
+        </td>
+        <td>{{ a.auditor }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-icons-round">fact_check</span>
+    <h3>No audit records</h3>
+    <p>Record your first audit to get started</p>
+    {% if current_user.can_edit() %}
+    <a href="{{ url_for('audits.new') }}" class="btn btn-primary mt-2">
+      <span class="material-icons-round">add</span> New Audit
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% set endpoint = 'audits.list_view' %}
+  {% include "_pagination.html" %}
+</div>
+{% endblock %}

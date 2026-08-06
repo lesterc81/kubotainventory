@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('assets.list_view') }}">Assets</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>{{ title }}</span>
+</div>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ title }}</h1>
+  </div>
+  {% if asset %}
+  <div class="page-header-actions">
+    <a href="{{ url_for('assets.detail', asset_id=asset._id) }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">arrow_back</span> Back
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card" style="max-width:900px">
+  <!-- Show any form-level errors -->
+  {% if form.errors %}
+  <div class="snackbar snackbar-error" style="margin:16px 16px 0">
+    <span class="material-icons-round snackbar-icon">error</span>
+    <div>
+      <strong>Please fix the following errors:</strong>
+      <ul style="margin:4px 0 0 16px;font-size:13px">
+        {% for field, errs in form.errors.items() %}
+          {% for e in errs %}
+          <li><strong>{{ field }}:</strong> {{ e }}</li>
+          {% endfor %}
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+  <form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <!-- Identification -->
+    <div class="card-header"><div class="card-title"><span class="material-icons-round">label</span> Identification</div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Asset Tag *</label>
+          {{ form.asset_tag(class="form-control" + (" error" if form.asset_tag.errors else ""), placeholder="IT-2024-001") }}
+          {% for e in form.asset_tag.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Serial Number *</label>
+          {{ form.serial_number(class="form-control" + (" error" if form.serial_number.errors else ""), placeholder="SN1234567890") }}
+          {% for e in form.serial_number.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Endpoint Name / Hostname</label>
+          {{ form.endpoint_name(class="form-control", placeholder="DESKTOP-ABCDEF") }}
+        </div>
+        <div class="form-group">
+          <label>Device Type *</label>
+          {{ form.device_type(class="form-control") }}
+        </div>
+        <div class="form-group">
+          <label>Model Name *</label>
+          {{ form.model_name(class="form-control", placeholder="ThinkPad X1 Carbon") }}
+          {% for e in form.model_name.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Manufacturer</label>
+          {{ form.manufacturer(class="form-control", placeholder="Lenovo") }}
+        </div>
+        <div class="form-group">
+          <label>OS Version</label>
+          {{ form.os_version(class="form-control", placeholder="Windows 11 Pro 22H2") }}
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          {{ form.location(class="form-control", placeholder="Manila HQ - Floor 3") }}
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          {{ form.status(class="form-control") }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Specs -->
+    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">memory</span> Specifications</div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>CPU</label>
+          {{ form.cpu(class="form-control", placeholder="Intel Core i7-1265U") }}
+        </div>
+        <div class="form-group">
+          <label>RAM</label>
+          {{ form.ram(class="form-control", placeholder="16 GB DDR5") }}
+        </div>
+        <div class="form-group">
+          <label>Storage</label>
+          {{ form.storage(class="form-control", placeholder="512 GB NVMe SSD") }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Procurement -->
+    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">receipt_long</span> Procurement</div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Purchase Date</label>
+          {{ form.purchase_date(class="form-control") }}
+        </div>
+        <div class="form-group">
+          <label>Warranty Expiry</label>
+          {{ form.warranty_expiry(class="form-control") }}
+        </div>
+        <div class="form-group">
+          <label>Purchase Cost (₱)</label>
+          {{ form.purchase_cost(class="form-control", placeholder="45000") }}
+        </div>
+        <div class="form-group">
+          <label>Vendor / Supplier</label>
+          {{ form.vendor(class="form-control", placeholder="CDO Computers") }}
+        </div>
+        <div class="form-group full">
+          <label>Notes</label>
+          {{ form.notes(class="form-control", rows=3, placeholder="Additional notes…") }}
+        </div>
+      </div>
+    </div>
+
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">save</span>
+        {% if asset %}Save Changes{% else %}Create Asset{% endif %}
+      </button>
+      <a href="{{ url_for('assets.list_view') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

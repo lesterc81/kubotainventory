@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('workstations.list_view') }}">Workstations</a>
+  <span class="material-icons-round">chevron_right</span>
+  {% if ws %}
+  <a href="{{ url_for('workstations.detail', ws_id=ws._id) }}">{{ ws.workstation_code }}</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>Edit</span>
+  {% else %}
+  <span>New Workstation</span>
+  {% endif %}
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ title }}</h1>
+    <p>{% if ws %}Update workstation details{% else %}Register a new workstation location{% endif %}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('workstations.detail', ws_id=ws._id) if ws else url_for('workstations.list_view') }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">arrow_back</span> Back
+    </a>
+  </div>
+</div>
+
+<div class="card" style="max-width:760px">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">workspaces</span> Workstation Information</div>
+  </div>
+  <form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Workstation Code *</label>
+          {{ form.workstation_code(class="form-control" + (" error" if form.workstation_code.errors else ""), placeholder="WS-MNL-001") }}
+          {% for e in form.workstation_code.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+
+        <div class="form-group">
+          <label>Workstation Name</label>
+          {{ form.workstation_name(class="form-control", placeholder="Desk A3") }}
+        </div>
+
+        <div class="form-group">
+          <label>Location / Site *</label>
+          {{ form.location(class="form-control" + (" error" if form.location.errors else ""), placeholder="Manila HQ") }}
+          {% for e in form.location.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+
+        <div class="form-group">
+          <label>Floor / Area</label>
+          {{ form.floor_area(class="form-control", placeholder="Floor 3 - Section B") }}
+        </div>
+
+        <div class="form-group">
+          <label>Department</label>
+          {{ form.department(class="form-control", placeholder="IT Department") }}
+        </div>
+
+        <div class="form-group">
+          <label>Status</label>
+          {{ form.status(class="form-control") }}
+        </div>
+
+        <div class="form-group full">
+          <label>Notes</label>
+          {{ form.notes(class="form-control", rows=3, placeholder="Optional notes about this workstation…") }}
+        </div>
+      </div>
+
+      {% if not ws %}
+      <div class="hint-box mt-2">
+        <span class="material-icons-round">info</span>
+        <span>You can assign an employee to this workstation after it's created, from the workstation's detail page.</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">save</span>
+        {% if ws %}Save Changes{% else %}Create Workstation{% endif %}
+      </button>
+      <a href="{{ url_for('workstations.detail', ws_id=ws._id) if ws else url_for('workstations.list_view') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

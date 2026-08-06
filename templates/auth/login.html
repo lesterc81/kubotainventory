@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Sign In — IT Asset System{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card" id="authCard">
+    <div class="auth-logo">
+      <span class="material-icons-round auth-icon">inventory_2</span>
+      <h1>IT Asset System</h1>
+      <p>Sign in to your account</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flash-area">
+        {% for cat, msg in messages %}
+        <div class="snackbar snackbar-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" novalidate>
+      {{ form.hidden_tag() }}
+
+      <div class="form-group mb-2">
+        <label>{{ form.username.label }}</label>
+        {{ form.username(class="form-control" + (" error" if form.username.errors else ""), placeholder="Enter your username", autofocus=True) }}
+        {% for e in form.username.errors %}
+        <span class="form-error">{{ e }}</span>
+        {% endfor %}
+      </div>
+
+      <div class="form-group mb-2">
+        <label>{{ form.password.label }}</label>
+        {{ form.password(class="form-control" + (" error" if form.password.errors else ""), placeholder="Enter your password") }}
+        {% for e in form.password.errors %}
+        <span class="form-error">{{ e }}</span>
+        {% endfor %}
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+        {{ form.remember() }}
+        <label for="remember" style="font-size:13px;color:var(--ink-muted)">
+          Remember me
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-full" style="justify-content:center">
+        <span class="material-icons-round">login</span>
+        Sign In
+      </button>
+
+    </form>
+  </div>
+</div>
+
+<style>
+.auth-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  max-width: 500px;
+  width: 100%;
+  margin: 0 auto;
+}
+.auth-card {
+  background: var(--card);
+  border: 2.5px solid var(--border-ink);
+  border-radius: var(--radius-asym);
+  box-shadow: var(--shadow-md);
+  padding: 36px 36px 32px;
+  width: 100%;
+}
+.auth-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+.auth-icon {
+  font-size: 38px !important;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 var(--border-ink);
+}
+.auth-logo h1 {
+  font-size: 20px;
+  font-weight: 400;
+  font-family: var(--font-display);
+  color: var(--ink);
+}
+.auth-logo p { font-size: 13px; color: var(--ink-muted); }
+.flash-area { margin-bottom: 20px; }
+.flash-area .snackbar { margin-bottom: 8px; }
+.flash-area .snackbar:last-child { margin-bottom: 0; }
+.auth-main { flex-direction: column; }
+</style>
+{% endblock %}

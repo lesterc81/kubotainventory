@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}New Audit — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('audits.list_view') }}">Audits</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>New Audit</span>
+</div>
+<div class="page-header">
+  <div class="page-header-left"><h1>{{ title }}</h1></div>
+</div>
+
+<div class="card" style="max-width:680px">
+  <div class="card-header"><div class="card-title"><span class="material-icons-round">fact_check</span> Audit Information</div></div>
+  <form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Audit Type</label>
+          {{ form.audit_type(class="form-control") }}
+        </div>
+        <div class="form-group">
+          <label>Audit Date *</label>
+          {{ form.audit_date(class="form-control") }}
+          {% for e in form.audit_date.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label>Result</label>
+          {{ form.result(class="form-control") }}
+        </div>
+        <div class="form-group">
+          <label>Asset ID (optional)</label>
+          {{ form.asset_id(class="form-control", placeholder="Leave blank if not asset-specific") }}
+        </div>
+        <div class="form-group">
+          <label>Workstation ID (optional)</label>
+          {{ form.workstation_id(class="form-control", placeholder="Leave blank if not WS-specific") }}
+        </div>
+        <div class="form-group full">
+          <label>Findings</label>
+          {{ form.findings(class="form-control", rows=4, placeholder="Describe what was found during the audit…") }}
+        </div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">save</span> Save Audit
+      </button>
+      <a href="{{ url_for('audits.list_view') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

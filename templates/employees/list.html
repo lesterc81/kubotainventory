@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Employees — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Employees</h1>
+    <p>Manage employee records and asset accountability</p>
+  </div>
+  <div class="page-header-actions">
+    {% if current_user.can_edit() %}
+    <a href="{{ url_for('employees.new') }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">person_add</span> New Employee
+    </a>
+    {% endif %}
+    <a href="{{ url_for('io.export_employees') }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">download</span> Export
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="filter-bar">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="filter-search">
+        <span class="material-icons-round">search</span>
+        <input type="search" name="q" value="{{ q }}" placeholder="Name, ID, email…">
+      </div>
+      <select name="status" class="form-control" style="max-width:160px" onchange="this.form.submit()">
+        <option value="">All Statuses</option>
+        {% for s in ['Active','Inactive','Resigned','On Leave'] %}
+        <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-tonal btn-sm">Filter</button>
+      {% if q or status_filter %}
+      <a href="{{ url_for('employees.list_view') }}" class="btn btn-outline btn-sm">Clear</a>
+      {% endif %}
+    </form>
+    <span class="text-muted" style="margin-left:auto">{{ total }} records</span>
+  </div>
+
+  {% if employees %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Employee ID</th>
+          <th>Full Name</th>
+          <th>Department</th>
+          <th>Position</th>
+          <th>Site</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for e in employees %}
+      <tr>
+        <td class="text-mono">{{ e.employee_id }}</td>
+        <td>
+          <a href="{{ url_for('employees.detail', employee_id=e._id) }}" style="font-weight:600">{{ e.full_name }}</a>
+          <div class="text-muted text-small">{{ e.email }}</div>
+        </td>
+        <td>{{ e.department }}</td>
+        <td>{{ e.position }}</td>
+        <td>{{ e.site }}</td>
+        <td>
+          <span class="chip {% if e.status == 'Active' %}chip-green{% elif e.status == 'Resigned' %}chip-red{% elif e.status == 'On Leave' %}chip-orange{% else %}chip-grey{% endif %}">
+            {{ e.status }}
+          </span>
+        </td>
+        <td>
+          <div class="flex gap-2" style="gap:6px">
+            <a href="{{ url_for('employees.detail', employee_id=e._id) }}" class="btn btn-tonal btn-sm">
+              <span class="material-icons-round">visibility</span>
+            </a>
+            {% if current_user.can_edit() %}
+            <a href="{{ url_for('employees.edit', employee_id=e._id) }}" class="btn btn-outline btn-sm">
+              <span class="material-icons-round">edit</span>
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <span class="material-icons-round">badge</span>
+    <h3>No employees found</h3>
+    <p>{% if q or status_filter %}Try adjusting your filters{% else %}Add your first employee to get started{% endif %}</p>
+    {% if current_user.can_edit() and not q and not status_filter %}
+    <a href="{{ url_for('employees.new') }}" class="btn btn-primary mt-2">
+      <span class="material-icons-round">person_add</span> Add Employee
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% set endpoint = 'employees.list_view' %}
+  {% include "_pagination.html" %}
+</div>
+{% endblock %}

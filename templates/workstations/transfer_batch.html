@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Batch Transfer — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('workstations.list_view') }}">Workstations</a>
+  <span class="material-icons-round">chevron_right</span>
+  <a href="{{ url_for('workstations.detail', ws_id=ws.id) }}">{{ ws.workstation_code }}</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>Batch Transfer</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Batch Transfer</h1>
+    <p>Transfer all assets from <strong>{{ ws.workstation_code }}</strong> to an employee</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('workstations.detail', ws_id=ws.id) }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">arrow_back</span> Back to Workstation
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span class="material-icons-round">select_all</span> 
+      Selected Assets ({{ assets|length }})
+    </div>
+  </div>
+  
+  <form method="POST">
+    <div class="card-body">
+      <!-- Summary -->
+      <div class="alert alert-info">
+        <span class="material-icons-round">info</span>
+        <div>
+          <strong>You're about to transfer {{ assets|length }} assets from {{ ws.workstation_code }}.</strong>
+          <br>
+          All assets will be assigned to the selected employee.
+        </div>
+      </div>
+
+      <!-- Validation Summary -->
+      {% if invalid_count > 0 %}
+      <div class="alert alert-danger">
+        <span class="material-icons-round">error</span>
+        <div>
+          <strong>{{ invalid_count }} asset(s) cannot be transferred.</strong>
+          <br>
+          Please resolve the issues before proceeding.
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Assets Table -->
+      <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset Tag</th>
+            <th>Type</th>
+            <th>Serial Number</th>
+            <th>Current Status</th>
+            <th>Current Assignment</th>
+            <th>Validation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for result in validation_results %}
+          <tr class="{% if result.valid %}valid{% else %}invalid{% endif %}">
+            <td><strong>{{ result.asset.asset_tag }}</strong></td>
+            <td>{{ result.asset.device_type }}</td>
+            <td>{{ result.asset.serial_number }}</td>
+            <td>
+              <span class="badge badge-{{ result.asset.status|lower }}">
+                {{ result.asset.status }}
+              </span>
+            </td>
+            <td>
+              {% if result.asset.assigned_to %}
+                {{ result.asset.employee_name or 'Unknown' }}
+              {% else %}
+                <span class="text-muted">Not Assigned</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if result.valid %}
+                <span class="badge badge-success">✓ Valid</span>
+              {% else %}
+                <span class="badge badge-danger">✗ Invalid</span>
+                <br>
+                <small class="text-muted">{{ result.errors|join(', ') }}</small>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+
+      <!-- Transfer Form -->
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Transfer To Employee *</label>
+          <select name="employee_id" class="form-control" required>
+            <option value="">-- Select Employee --</option>
+            {% for emp in all_employees %}
+            <option value="{{ emp.id }}">
+              {{ emp.full_name }} ({{ emp.employee_id }}) - {{ emp.department }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group full">
+          <label>Reason</label>
+          <input type="text" name="reason" class="form-control" value="Workstation Transfer">
+        </div>
+
+        <div class="form-group full">
+          <label>Notes</label>
+          <textarea name="notes" class="form-control" rows="3" placeholder="Additional details..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary" {% if invalid_count > 0 %}disabled{% endif %}>
+        <span class="material-icons-round">sync</span>
+        Transfer All {{ assets|length }} Assets
+      </button>
+      <a href="{{ url_for('workstations.detail', ws_id=ws.id) }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Audit Trail — IT Asset System{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>Audit Trail</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Audit Trail</h1>
+    <p>Complete history of all system actions</p>
+  </div>
+  <div class="page-header-actions">
+    <span class="chip chip-primary">{{ total }} entries</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <!-- Filter Form -->
+    <div class="filter-bar" style="margin-bottom:16px;border-radius:8px;">
+      <form method="GET" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;width:100%;">
+        <div class="form-group" style="flex:2;min-width:200px;">
+          <label>Search</label>
+          <div style="display:flex;">
+            <span style="display:flex;align-items:center;padding:0 10px;background:var(--card);border:1.5px solid var(--border);border-right:none;border-radius:8px 0 0 8px;color:var(--ink-muted);">
+              <span class="material-icons-round" style="font-size:18px;">search</span>
+            </span>
+            <input type="text" name="search" class="form-control" style="border-radius:0 8px 8px 0;" placeholder="User, module, or action..." value="{{ request.args.get('search', '') }}">
+          </div>
+        </div>
+        <div class="form-group" style="flex:1;min-width:150px;">
+          <label>Module</label>
+          <select name="module" class="form-control">
+            <option value="">All Modules</option>
+            <option value="Assets" {% if request.args.get('module') == 'Assets' %}selected{% endif %}>Assets</option>
+            <option value="Employees" {% if request.args.get('module') == 'Employees' %}selected{% endif %}>Employees</option>
+            <option value="Workstations" {% if request.args.get('module') == 'Workstations' %}selected{% endif %}>Workstations</option>
+            <option value="Accountabilities" {% if request.args.get('module') == 'Accountabilities' %}selected{% endif %}>Accountabilities</option>
+            <option value="Audits" {% if request.args.get('module') == 'Audits' %}selected{% endif %}>Audits</option>
+            <option value="Users" {% if request.args.get('module') == 'Users' %}selected{% endif %}>Users</option>
+            <option value="Auth" {% if request.args.get('module') == 'Auth' %}selected{% endif %}>Authentication</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:1px;">
+          <button type="submit" class="btn btn-primary">
+            <span class="material-icons-round">filter_list</span> Filter
+          </button>
+          <a href="{{ url_for('audits.trail') }}" class="btn btn-outline">
+            <span class="material-icons-round">clear</span> Clear
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Audit Logs Table -->
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:13%;">Timestamp</th>
+            <th style="width:10%;">User</th>
+            <th style="width:10%;">Module</th>
+            <th style="width:10%;">Action</th>
+            <th style="width:15%;">Record</th>
+            <th style="width:42%;">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if logs %}
+            {% for log in logs %}
+            <tr>
+              <td style="font-size:0.8rem;white-space:nowrap;">{{ log.timestamp[:19] if log.timestamp else '-' }}</td>
+              <td><strong>{{ log.username }}</strong></td>
+              <td><span class="chip chip-blue">{{ log.module }}</span></td>
+              <td>{{ log.action }}</td>
+              <td>
+                {% if log.record_name %}
+                  <div><strong>{{ log.record_name }}</strong></div>
+                  <small style="font-size:0.65rem;color:var(--ink-muted)">ID: {{ log.record_id }}</small>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if log.old_value or log.new_value %}
+                <div>
+                  <button class="btn btn-sm btn-outline" onclick="toggleDetails('details-{{ loop.index }}')">
+                    <span class="material-icons-round" style="font-size:16px;">visibility</span> View Changes
+                  </button>
+                  <div id="details-{{ loop.index }}" style="display:none;margin-top:8px;">
+                    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+                      <div style="background:var(--paper);padding:12px;">
+                        {% if log.old_value and log.new_value %}
+                          {% if log.old_value is mapping and log.new_value is mapping %}
+                            <div style="overflow-x:auto;">
+                              <table style="margin:0;font-size:0.85rem;">
+                                <thead>
+                                  <tr style="background:var(--paper);">
+                                    <th style="width:20%;padding:8px;">Field</th>
+                                    <th style="width:40%;padding:8px;">Old Value</th>
+                                    <th style="width:40%;padding:8px;">New Value</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {% set changed_keys = [] %}
+                                  {% for key in log.new_value.keys() %}
+                                    {% if key in log.old_value and log.old_value[key] != log.new_value[key] and not key.endswith('_name') %}
+                                      {% set _ = changed_keys.append(key) %}
+                                    {% endif %}
+                                  {% endfor %}
+                                  {% for key in changed_keys %}
+                                  <tr>
+                                    <td style="padding:6px 8px;"><strong>{{ key|replace('_', ' ')|title }}</strong></td>
+                                    <td style="padding:6px 8px;">
+                                      {% if key in log.old_value %}
+                                        {% if log.old_value[key] and not log.old_value[key]|string == 'null' %}
+                                          {% set old_val = log.old_value[key] %}
+                                          {% set name_key = key ~ '_name' %}
+                                          {% if name_key in log.old_value and log.old_value[name_key] %}
+                                            <span style="color:var(--error);font-weight:700;">{{ log.old_value[name_key] }}</span>
+                                          {% else %}
+                                            <span style="color:var(--error);">{{ old_val }}</span>
+                                          {% endif %}
+                                        {% else %}
+                                          <span class="text-muted" style="font-style:italic;">None</span>
+                                        {% endif %}
+                                      {% else %}
+                                        <span class="text-muted" style="font-style:italic;">None</span>
+                                      {% endif %}
+                                    </td>
+                                    <td style="padding:6px 8px;">
+                                      {% set new_val = log.new_value[key] %}
+                                      {% set name_key = key ~ '_name' %}
+                                      {% if name_key in log.new_value and log.new_value[name_key] %}
+                                        <span style="color:var(--success);font-weight:700;">{{ log.new_value[name_key] }}</span>
+                                      {% else %}
+                                        {% if new_val %}
+                                          <span style="color:var(--success);">{{ new_val }}</span>
+                                        {% else %}
+                                          <span class="text-muted" style="font-style:italic;">None</span>
+                                        {% endif %}
+                                      {% endif %}
+                                    </td>
+                                  </tr>
+                                  {% endfor %}
+                                </tbody>
+                              </table>
+                            </div>
+                          {% else %}
+                            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                              <div style="flex:1;min-width:200px;">
+                                <strong style="color:var(--error);">Old:</strong>
+                                <pre style="font-size:0.8rem;margin-top:4px;background:var(--card);padding:8px;border-radius:4px;white-space:pre-wrap;word-wrap:break-word;max-height:200px;overflow-y:auto;">{{ log.old_value|tojson(indent=2)|safe }}</pre>
+                              </div>
+                              <div style="flex:1;min-width:200px;">
+                                <strong style="color:var(--success);">New:</strong>
+                                <pre style="font-size:0.8rem;margin-top:4px;background:var(--card);padding:8px;border-radius:4px;white-space:pre-wrap;word-wrap:break-word;max-height:200px;overflow-y:auto;">{{ log.new_value|tojson(indent=2)|safe }}</pre>
+                              </div>
+                            </div>
+                          {% endif %}
+                        {% else %}
+                          {% if log.old_value %}
+                            <div><strong>Old:</strong> <code>{{ log.old_value|tojson|safe }}</code></div>
+                          {% endif %}
+                          {% if log.new_value %}
+                            <div><strong>New:</strong> <code>{{ log.new_value|tojson|safe }}</code></div>
+                          {% endif %}
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="6" style="text-align:center;padding:24px;color:var(--ink-muted);">No audit logs found.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% set endpoint = 'audits.trail' %}
+    {% include "_pagination.html" %}
+  </div>
+</div>
+
+<script>
+function toggleDetails(id) {
+  var element = document.getElementById(id);
+  if (element.style.display === 'none' || element.style.display === '') {
+    element.style.display = 'block';
+    setTimeout(function() { element.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
+  } else {
+    element.style.display = 'none';
+  }
+}
+</script>
+{% endblock %}
