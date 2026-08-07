@@ -16,7 +16,7 @@ import threading
 import time
 
 APP_TITLE = "IT Asset System"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 WINDOW_TITLE = f"{APP_TITLE} v{APP_VERSION}"
 
 
@@ -29,13 +29,22 @@ class ExportApi:
     def open_exported(self, filename):
         import os
         try:
-            path = os.path.join(self.exports_dir, filename)
-            if os.path.exists(path):
-                os.startfile(path)
-                return True
+            if not isinstance(filename, str):
+                return False
+            # Reject any path separators, relative "..", or empty names outright.
+            if filename in ("", ".", "..") or os.path.basename(filename) != filename:
+                return False
+            real_exports = os.path.realpath(self.exports_dir)
+            path = os.path.realpath(os.path.join(self.exports_dir, filename))
+            # Defense in depth: the resolved file must stay inside the Exports dir.
+            if os.path.commonpath([path, real_exports]) != real_exports:
+                return False
+            if not os.path.isfile(path):
+                return False
+            os.startfile(path)
+            return True
         except Exception:
-            pass
-        return False
+            return False
 
     def reveal_exports_dir(self):
         import os
@@ -152,9 +161,11 @@ def main():
     host = "0.0.0.0"
     port = int(os.environ["PORT"])
 
+    from waitress import serve as waitress_serve
     threading.Thread(
-        target=flask_app.run,
-        kwargs={"host": host, "port": port, "debug": False, "use_reloader": False},
+        target=waitress_serve,
+        args=(flask_app,),
+        kwargs={"host": host, "port": port, "threads": 8, "channel_timeout": 120},
         daemon=True,
     ).start()
 
