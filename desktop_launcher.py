@@ -16,6 +16,8 @@ import threading
 import time
 
 APP_TITLE = "IT Asset System"
+APP_VERSION = "1.1.0"
+WINDOW_TITLE = f"{APP_TITLE} v{APP_VERSION}"
 
 
 class ExportApi:
@@ -173,7 +175,7 @@ def main():
 
     import webview
 
-    window = webview.create_window(APP_TITLE, local_url, width=1360, height=860,
+    window = webview.create_window(WINDOW_TITLE, local_url, width=1360, height=860,
                                    min_size=(960, 640),
                                    js_api=ExportApi(exports_dir))
     window.events.closed += lambda: _shutdown(flask_app, appmod)
