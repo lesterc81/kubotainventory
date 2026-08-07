@@ -22,11 +22,13 @@ import logging
 import os
 import re
 import smtplib
+import socket
 import threading
 import time
 from datetime import date, datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
+from urllib.parse import urlsplit, urlunsplit
 
 import bcrypt
 import pandas as pd
@@ -524,59 +526,54 @@ def generate_qr(data_str, fill_color="black", back_color="white"):
     return base64.b64encode(buf.read()).decode("utf-8")
 
 
+def _lan_ip():
+    """Best-effort LAN address, so QR links resolve from phones, not 127.0.0.1."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+def _reachable_scan_url(endpoint, record_id):
+    """A scan URL a phone can actually open.
+
+    Uses APP_BASE_URL when configured; otherwise builds the URL from the
+    incoming request but replaces any loopback/(0.0.0.0) host with the LAN IP.
+    """
+    base = current_app.config.get("APP_BASE_URL", "").rstrip("/")
+    if base:
+        return base + url_for(endpoint, record_id=record_id)
+
+    external = url_for(endpoint, record_id=record_id, _external=True)
+    parts = urlsplit(external)
+    host = parts.hostname or ""
+    if host in ("127.0.0.1", "0.0.0.0", "localhost"):
+        host = _lan_ip()
+    port = parts.port
+    netloc = f"{host}:{port}" if port and port not in (80, 443) else host
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+
 def generate_asset_qr(asset_doc):
-    """QR encodes a readable summary + the scan URL (link stays tappable in most scanners)."""
+    """QR encodes ONLY the scan URL.
+
+    A pure single URI is required for iOS (iPhone) Camera to treat the QR as a
+    tappable link; mixed multi-line text defeats that. The scan page shows the
+    full asset detail, so nothing is lost.
+    """
     asset_id = str(asset_doc.get("_id", asset_doc.get("id", "")))
-    scan_url = url_for("scan.scan_asset", record_id=asset_id, _external=True)
-
-    emp_name = ""
-    if asset_doc.get("assigned_to"):
-        emp_oid = safe_object_id(asset_doc["assigned_to"])
-        if emp_oid:
-            emp = mongo.db.employees.find_one({"_id": emp_oid}, {"full_name": 1})
-            if emp:
-                emp_name = emp.get("full_name", "")
-
-    lines = [
-        f"Asset Tag: {asset_doc.get('asset_tag', '')}",
-        f"Model: {asset_doc.get('model_name', '')}",
-        f"Status: {asset_doc.get('status', '')}",
-    ]
-    if emp_name:
-        lines.append(f"Assigned to: {emp_name}")
-    if asset_doc.get("location"):
-        lines.append(f"Location: {asset_doc.get('location')}")
-    lines.append("")
-    lines.append(scan_url)
-
-    payload = "\n".join(lines)
-    return generate_qr(payload, fill_color="#1565C0", back_color="white")
+    scan_url = _reachable_scan_url("scan.scan_asset", asset_id)
+    return generate_qr(scan_url, fill_color="#1565C0", back_color="white")
 
 
 def generate_workstation_qr(ws_doc, emp_doc=None, assets=None):
     ws_id = str(ws_doc.get("_id", ws_doc.get("id", "")))
-    scan_url = url_for("scan.scan_workstation", record_id=ws_id, _external=True)
-
-    lines = [
-        f"Workstation: {ws_doc.get('workstation_code', '')}",
-        f"Location: {ws_doc.get('location', '')}",
-        f"Status: {ws_doc.get('status', '')}",
-    ]
-    if emp_doc:
-        lines.append(f"Assigned to: {emp_doc.get('full_name', '')}")
-
-    if assets:
-        lines.append("Assets:")
-        for a in assets:
-            tag = a.get("asset_tag", "")
-            dtype = a.get("device_type", "")
-            lines.append(f"- {tag} ({dtype})" if dtype else f"- {tag}")
-
-    lines.append("")
-    lines.append(scan_url)
-
-    payload = "\n".join(lines)
-    return generate_qr(payload, fill_color="#00838F", back_color="white")
+    scan_url = _reachable_scan_url("scan.scan_workstation", ws_id)
+    return generate_qr(scan_url, fill_color="#00838F", back_color="white")
 
 # =============================================================================
 # QR Scan Routes
