@@ -17,10 +17,10 @@
     <button type="button" onclick="window.location.href='{{ url_for('io.import_inventory') }}'" class="btn btn-tonal btn-sm">
       <span class="material-icons-round">upload_file</span> Import
     </button>
-    <button type="button" onclick="window.location.href='{{ url_for('io.export_assets') }}'" class="btn btn-outline btn-sm">
+    <button type="button" onclick="safeDownload('{{ url_for('io.export_assets') }}')" class="btn btn-outline btn-sm">
       <span class="material-icons-round">download</span> Export
     </button>
-    <button type="button" onclick="window.location.href='{{ url_for('io.report_assets_pdf') }}'" class="btn btn-outline btn-sm">
+    <button type="button" onclick="safeDownload('{{ url_for('io.report_assets_pdf') }}')" class="btn btn-outline btn-sm">
       <span class="material-icons-round">picture_as_pdf</span> PDF
     </button>
   </div>

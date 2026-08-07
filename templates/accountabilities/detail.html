@@ -13,7 +13,7 @@
     <p>{{ acc.accountability_type }} — {{ acc.effective_date[:10] if acc.effective_date else '' }}</p>
   </div>
   <div class="page-header-actions">
-    <a href="{{ url_for('io.accountability_pdf', acc_id=acc._id) }}" class="btn btn-tonal btn-sm">
+    <a href="#" onclick="safeDownload('{{ url_for('io.accountability_pdf', acc_id=acc._id) }}'); return false;" class="btn btn-tonal btn-sm">
       <span class="material-icons-round">picture_as_pdf</span> Export PDF
     </a>
     {% if current_user.can_edit() and acc.status == 'Active' %}

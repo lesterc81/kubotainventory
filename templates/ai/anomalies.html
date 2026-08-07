@@ -97,9 +97,17 @@ function acknowledge(id, btn) {
   btn.innerHTML = '<span class="material-icons-round">hourglass_top</span>...';
   fetch('{{ url_for("ai.acknowledge", anomaly_id="") }}' + id,
         { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
-    .then(r => r.json())
+    .then(async r => {
+      const body = await r.text();
+      if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + body.slice(0, 200));
+      return body;
+    })
     .then(() => location.reload())
-    .catch(() => { btn.disabled = false; alert('Failed to acknowledge anomaly.'); });
+    .catch(err => {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-icons-round">done</span> Ack';
+      alert('Acknowledge failed (' + err.message + ')');
+    });
 }
 
 function removeAnomaly(id, btn) {

@@ -7,6 +7,24 @@ function csrfHeaders(extra) {
   return Object.assign({ 'X-CSRFToken': window.csrfToken() }, extra || {});
 }
 
+// Download a file behind auth. First verifies the endpoint returns OK (surfacing
+// errors such as 500/403 instead of silently failing), then opens the real URL
+// so the browser/WebView handles the attachment download.
+async function safeDownload(url) {
+  try {
+    const r = await fetch(url, { credentials: 'same-origin' });
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      alert('Download failed (HTTP ' + r.status + '): ' + body.slice(0, 200));
+      return;
+    }
+  } catch (err) {
+    alert('Download failed: ' + err.message);
+    return;
+  }
+  window.location.href = url;
+}
+
 // ─── Double-submit guard: disable submit buttons while a form is submitting
 document.addEventListener('submit', function (e) {
   const form = e.target;

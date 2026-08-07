@@ -12,7 +12,7 @@
       <span class="material-icons-round">person_add</span> New Employee
     </a>
     {% endif %}
-    <a href="{{ url_for('io.export_employees') }}" class="btn btn-outline btn-sm">
+    <a href="#" onclick="safeDownload('{{ url_for('io.export_employees') }}'); return false;" class="btn btn-outline btn-sm">
       <span class="material-icons-round">download</span> Export
     </a>
   </div>
