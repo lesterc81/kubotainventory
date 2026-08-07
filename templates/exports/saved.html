@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Export — Saved{% endblock %}
+{% block content %}
+<div class="empty-state" style="max-width:520px;margin:48px auto;text-align:center">
+  <span class="material-icons-round" style="font-size:44px;color:#2E7D32">task_alt</span>
+  <h1 style="font-size:20px;margin:8px 0 4px">Export ready</h1>
+  <p class="text-muted">
+    Your file was saved to the app's <strong>Exports</strong> folder and is being opened now.
+  </p>
+  <p class="text-small text-mono" style="margin:14px 0 22px;word-break:break-all">{{ full_path }}</p>
+  <div class="page-header-actions" style="justify-content:center">
+    <button class="btn btn-primary" onclick="window.pywebview.api.reveal_exports_dir()">
+      <span class="material-icons-round">folder_open</span> Open Exports Folder
+    </button>
+    <button class="btn btn-outline" onclick="window.pywebview.api.open_exported('{{ filename }}')">
+      <span class="material-icons-round">insert_drive_file</span> Open {{ filename }}
+    </button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Auto-open the saved file as soon as the page is up.
+  window.addEventListener('load', function () {
+    if (window.pywebview && pywebview.api) {
+      pywebview.api.open_exported('{{ filename }}');
+    }
+  });
+</script>
+{% endblock %}

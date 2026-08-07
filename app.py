@@ -23,6 +23,7 @@ import os
 import re
 import smtplib
 import socket
+import shutil
 import threading
 import time
 from datetime import date, datetime, timedelta
@@ -510,6 +511,30 @@ def editor_required(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated
+
+
+def _deliver_download(filename, buf_bytes, mimetype):
+    """Return an export in a way that works in both browser and desktop exe.
+
+    In desktop mode the file is written to the app's Exports folder and a small
+    "Saved" page is returned (the launcher's JS API then opens it with the OS),
+    because WebView2 drops `Content-Disposition: attachment` downloads. Otherwise
+    behave like a normal streaming download.
+    """
+    buf = io.BytesIO(buf_bytes)
+    buf.seek(0)
+    exports_dir = current_app.config.get("EXPORTS_DIR")
+    if current_app.config.get("IS_DESKTOP") and exports_dir:
+        try:
+            os.makedirs(exports_dir, exist_ok=True)
+            dest = os.path.join(exports_dir, filename)
+            with open(dest, "wb") as fh:
+                shutil.copyfileobj(buf, fh)
+            return render_template("exports/saved.html", filename=filename,
+                                   full_path=dest)
+        except Exception:
+            pass
+    return send_file(buf, download_name=filename, as_attachment=True, mimetype=mimetype)
 
 
 def generate_qr(data_str, fill_color="black", back_color="white"):
@@ -2620,8 +2645,9 @@ def export_assets():
         df.to_excel(writer, index=False, sheet_name="Assets")
     buf.seek(0)
     audit_log("Assets", "Export")
-    return send_file(buf, download_name="assets_export.xlsx", as_attachment=True,
-                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return _deliver_download(
+        "assets_export.xlsx", buf.getvalue(),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 @io_bp.route("/export/employees")
@@ -2638,8 +2664,9 @@ def export_employees():
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     audit_log("Employees", "Export")
-    return send_file(buf, download_name="employees_export.xlsx", as_attachment=True,
-                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return _deliver_download(
+        "employees_export.xlsx", buf.getvalue(),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 def _pdf_header(elements, title, styles):
@@ -2676,7 +2703,7 @@ def report_assets_pdf():
     doc.build(elements)
     buf.seek(0)
     audit_log("Reports", "Export PDF Assets")
-    return send_file(buf, download_name="asset_inventory.pdf", as_attachment=True, mimetype="application/pdf")
+    return _deliver_download("asset_inventory.pdf", buf.getvalue(), "application/pdf")
 
 
 @io_bp.route("/reports/accountability/<acc_id>/pdf")
@@ -2740,7 +2767,7 @@ def accountability_pdf(acc_id):
     elements += [Paragraph("Signatures", styles["Heading2"]), sig]
     doc.build(elements)
     buf.seek(0)
-    return send_file(buf, download_name=f"accountability_{acc_id}.pdf", as_attachment=True, mimetype="application/pdf")
+    return _deliver_download(f"accountability_{acc_id}.pdf", buf.getvalue(), "application/pdf")
 
 
 @io_bp.route("/reports/stickers/assets")
@@ -2985,6 +3012,8 @@ def create_app(config_name=None):
 
     config_name = config_name or os.environ.get("FLASK_ENV", "production")
     app.config.from_object(CONFIG_MAP.get(config_name, ProductionConfig))
+    app.config["IS_DESKTOP"] = os.environ.get("ASSETSYS_DESKTOP") == "1"
+    app.config["EXPORTS_DIR"] = os.environ.get("ASSETSYS_EXPORTS_DIR", "")
 
     logging.basicConfig(
         level=logging.DEBUG if app.config.get("DEBUG") else logging.INFO,

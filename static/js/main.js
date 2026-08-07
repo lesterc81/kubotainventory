@@ -7,10 +7,15 @@ function csrfHeaders(extra) {
   return Object.assign({ 'X-CSRFToken': window.csrfToken() }, extra || {});
 }
 
-// Download a file behind auth. First verifies the endpoint returns OK (surfacing
-// errors such as 500/403 instead of silently failing), then opens the real URL
-// so the browser/WebView handles the attachment download.
+// Download a file behind auth. In the desktop exe, export endpoints write the
+// file to the app's Exports folder and return a "Saved" page that auto-opens it
+// (WebView2 drops attachment downloads). In a normal browser we first verify the
+// endpoint (surfacing 500/403), then open the URL so the browser downloads it.
 async function safeDownload(url) {
+  if (window.pywebview && pywebview.api) {
+    window.location.href = url;
+    return;
+  }
   try {
     const r = await fetch(url, { credentials: 'same-origin' });
     if (!r.ok) {

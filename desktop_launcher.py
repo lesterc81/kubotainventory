@@ -18,6 +18,34 @@ import time
 APP_TITLE = "IT Asset System"
 
 
+class ExportApi:
+    """Exposed to the webview as ``pywebview.api`` for opening exported files."""
+
+    def __init__(self, exports_dir):
+        self.exports_dir = exports_dir
+
+    def open_exported(self, filename):
+        import os
+        try:
+            path = os.path.join(self.exports_dir, filename)
+            if os.path.exists(path):
+                os.startfile(path)
+                return True
+        except Exception:
+            pass
+        return False
+
+    def reveal_exports_dir(self):
+        import os
+        try:
+            if os.path.isdir(self.exports_dir):
+                os.startfile(self.exports_dir)
+                return True
+        except Exception:
+            pass
+        return False
+
+
 def _lan_ip():
     """Best-effort LAN address of this machine (used to show peers the URL)."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -96,6 +124,13 @@ def main():
     base_dir = _app_base_dir()
     _ensure_config(base_dir)
 
+    # Desktop download handling: exports are written beside the exe and opened
+    # with the OS (instead of relying on WebView2's unreliable download handling).
+    exports_dir = os.path.join(base_dir, "Exports")
+    os.makedirs(exports_dir, exist_ok=True)
+    os.environ["ASSETSYS_DESKTOP"] = "1"
+    os.environ["ASSETSYS_EXPORTS_DIR"] = exports_dir
+
     log_dir = os.path.join(base_dir, "logs")
     os.makedirs(log_dir, exist_ok=True)
     logging.basicConfig(
@@ -139,7 +174,8 @@ def main():
     import webview
 
     window = webview.create_window(APP_TITLE, local_url, width=1360, height=860,
-                                   min_size=(960, 640))
+                                   min_size=(960, 640),
+                                   js_api=ExportApi(exports_dir))
     window.events.closed += lambda: _shutdown(flask_app, appmod)
     webview.start(debug=False)
     return 0
