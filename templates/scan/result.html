@@ -87,8 +87,6 @@
     .status-Under { background: #A6781A; border-color: #A6781A; }
     .status-Archived { background: #B8AD9E; border-color: #B8AD9E; }
     .status-Retired { background: #C73E3E; border-color: #C73E3E; }
-    .status-Workstation { background: #00796B; border-color: #00796B; }
-    .status-Employee { background: #2B6C4B; border-color: #2B6C4B; }
     .child-item {
       background: #F3EFE6;
       border: 2px solid #D4C9B8;
@@ -186,14 +184,6 @@
         <span class="field-value" style="font-family:'JetBrains Mono',monospace;font-size:13px">{{ serial }}</span>
       </div>
       {% endif %}
-      {% if asset_class %}
-      <div class="field">
-        <span class="field-label">Category</span>
-        <span class="field-value">
-          <span class="status-dot status-{{ 'Workstation' if asset_class == 'Workstation Asset' else 'Employee' }}"></span>{{ asset_class }}
-        </span>
-      </div>
-      {% endif %}
       <div class="field">
         <span class="field-label">Status</span>
         <span class="field-value">
@@ -224,36 +214,19 @@
       {% endif %}
 
       {% if children is not none %}
-      <div class="section-title">Workstation Assets (stay here) — {{ children|length }}</div>
+      <div class="section-title">Attached Assets ({{ children|length }})</div>
       {% if children %}
         {% for c in children %}
         <div class="child-item">
           <div class="child-tag">{{ c.asset_tag }}</div>
-          <div class="child-detail">{{ c.device_type }} · {{ c.model_name }} · Workstation Asset</div>
+          <div class="child-detail">{{ c.device_type }} · {{ c.model_name }}</div>
           <div class="child-row">
             <span>S/N: {{ c.serial_number or '—' }}</span>
           </div>
         </div>
         {% endfor %}
       {% else %}
-        <p style="color:#B8AD9E;font-size:13px;text-align:center;padding:12px 0">No fixed assets attached</p>
-      {% endif %}
-      {% endif %}
-
-      {% if mobile_children is defined %}
-      <div class="section-title">Employee Assets (move with employee) — {{ mobile_children|length }}</div>
-      {% if mobile_children %}
-        {% for c in mobile_children %}
-        <div class="child-item">
-          <div class="child-tag">{{ c.asset_tag }}</div>
-          <div class="child-detail">{{ c.device_type }} · {{ c.model_name }} · Employee Asset</div>
-          <div class="child-row">
-            <span>S/N: {{ c.serial_number or '—' }}</span>
-          </div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <p style="color:#B8AD9E;font-size:13px;text-align:center;padding:12px 0">No portable assets present</p>
+        <p style="color:#B8AD9E;font-size:13px;text-align:center;padding:12px 0">No assets attached</p>
       {% endif %}
       {% endif %}
     </div>

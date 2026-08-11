@@ -46,15 +46,6 @@
           <div class="info-row"><span class="info-label">Serial Number</span><span class="info-value text-mono">{{ asset.serial_number }}</span></div>
           <div class="info-row"><span class="info-label">Endpoint Name</span><span class="info-value">{{ asset.endpoint_name or '—' }}</span></div>
           <div class="info-row"><span class="info-label">Device Type</span><span class="info-value">{{ asset.device_type }}</span></div>
-          <div class="info-row"><span class="info-label">Category</span>
-            <span class="info-value">
-              {% if asset.asset_class == 'Workstation Asset' %}
-              <span class="badge badge-workstation-asset">Workstation Asset</span>
-              {% else %}
-              <span class="badge badge-employee-asset">Employee Asset</span>
-              {% endif %}
-            </span>
-          </div>
           <div class="info-row"><span class="info-label">Model</span><span class="info-value">{{ asset.model_name }}</span></div>
           <div class="info-row"><span class="info-label">Manufacturer</span><span class="info-value">{{ asset.manufacturer or '—' }}</span></div>
           <div class="info-row"><span class="info-label">OS Version</span><span class="info-value">{{ asset.os_version or '—' }}</span></div>
@@ -76,10 +67,10 @@
       </div>
     </div>
 
-    <!-- Assigned Employee -->
+    <!-- Employee Assigned -->
     {% if emp %}
     <div class="card mb-3">
-      <div class="card-header"><div class="card-title"><span class="material-icons-round">person</span> Assigned To</div></div>
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">person</span> Employee Assigned</div></div>
       <div class="card-body">
         <div class="info-list">
           <div class="info-row"><span class="info-label">Name</span><span class="info-value"><a href="{{ url_for('employees.detail', employee_id=emp._id) }}">{{ emp.full_name }}</a></span></div>
@@ -91,10 +82,10 @@
     </div>
     {% endif %}
 
-    <!-- Workstation Info -->
+    <!-- Workstation Assigned -->
     {% if ws %}
     <div class="card mb-3">
-      <div class="card-header"><div class="card-title"><span class="material-icons-round">desktop_windows</span> Workstation</div></div>
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">desktop_windows</span> Workstation Assigned</div></div>
       <div class="card-body">
         <div class="info-list">
           <div class="info-row"><span class="info-label">Code</span><span class="info-value"><a href="{{ url_for('workstations.detail', ws_id=ws._id) }}">{{ ws.workstation_code }}</a></span></div>

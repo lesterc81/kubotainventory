@@ -38,13 +38,15 @@
   </div>
 </div>
 
-<!-- Employee Assets (portable, move with the employee) -->
+<!-- Assets: Employee Assets / Workstation Assets tabs -->
 <div class="card">
-  <div class="card-header">
-    <div class="card-title"><span class="material-icons-round">devices</span> Employee Assets ({{ assets|length }})</div>
-    <span class="badge badge-employee-asset">Move with employee</span>
+  <div class="tab-bar">
+    <div class="tab-item active" data-tab="tab-emp-assets">Employee Assets ({{ assets|length }})</div>
+    <div class="tab-item" data-tab="tab-ws-assets">Workstation Assets ({{ ws_assets|length }})</div>
   </div>
-  <div class="card-body">
+
+  <div id="tab-emp-assets" class="tab-panel active">
+    <p class="text-muted" style="padding:12px 20px 0">Assets directly assigned to {{ emp.full_name }}.</p>
     {% if assets %}
     <div class="table-wrapper">
     <table>
@@ -77,20 +79,16 @@
     </table>
     </div>
     {% else %}
-    <p class="text-muted">No portable assets assigned directly to this employee.</p>
+    <div class="empty-state">
+      <span class="material-icons-round">devices</span>
+      <p>No assets directly assigned to this employee.</p>
+    </div>
     {% endif %}
   </div>
-</div>
 
-<!-- Workstation Assets (fixed, stay at the desk) -->
-<div class="card">
-  <div class="card-header">
-    <div class="card-title"><span class="material-icons-round">desktop_windows</span> Workstation Assets ({{ ws_assets|length }})</div>
-    <span class="badge badge-workstation-asset">Stay at workstation</span>
-  </div>
-  <div class="card-body">
+  <div id="tab-ws-assets" class="tab-panel">
+    <p class="text-muted" style="padding:12px 20px 0">Assets at the workstation(s) this employee is accountable for. They stay at the seat when the employee leaves.</p>
     {% if ws_assets %}
-    <p class="text-muted">Fixed assets at the workstation(s) this employee is accountable for. They stay at the seat when the employee leaves.</p>
     <div class="table-wrapper">
     <table>
       <thead>
@@ -118,7 +116,10 @@
     </table>
     </div>
     {% else %}
-    <p class="text-muted">No workstation assets — the employee has no active workstation accountability with assets.</p>
+    <div class="empty-state">
+      <span class="material-icons-round">desktop_windows</span>
+      <p>No workstation assets — the employee has no active workstation accountability with assets.</p>
+    </div>
     {% endif %}
   </div>
 </div>
@@ -190,4 +191,15 @@
     </form>
   </div>
 </div>
+
+<script>
+document.querySelectorAll('.tab-item').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById(this.dataset.tab).classList.add('active');
+  });
+});
+</script>
 {% endblock %}

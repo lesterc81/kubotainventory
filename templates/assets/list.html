@@ -69,7 +69,6 @@
           <th>Asset Tag</th>
           <th>Serial Number</th>
           <th>Type</th>
-          <th>Category</th>
           <th>Model</th>
           <th>Location</th>
           <th>Assigned To</th>
@@ -90,13 +89,6 @@
         </td>
         <td class="text-mono">{{ a.serial_number }}</td>
         <td>{{ a.device_type }}</td>
-        <td>
-          {% if a.asset_class == 'Workstation Asset' %}
-          <span class="badge badge-workstation-asset">Workstation</span>
-          {% else %}
-          <span class="badge badge-employee-asset">Employee</span>
-          {% endif %}
-        </td>
         <td>{{ a.model_name }}</td>
         <td>{{ a.location or '—' }}</td>
         <td>

@@ -640,7 +640,6 @@ def scan_asset(record_id):
         employee_id=emp.get("employee_id", "") if emp else "",
         brand=doc.get("brand", ""),
         workstation_info=workstation_info,
-        asset_class=asset_class_of(doc),
         children=None,
     )
 
@@ -657,13 +656,8 @@ def scan_workstation(record_id):
     # Source of truth: assets actually linked to this workstation
     assets = list(mongo.db.assets.find(
         {"workstation_id": record_id},
-        {"asset_tag": 1, "device_type": 1, "model_name": 1, "serial_number": 1,
-         "asset_class": 1},
+        {"asset_tag": 1, "device_type": 1, "model_name": 1, "serial_number": 1},
     ))
-    for a in assets:
-        a["asset_class"] = asset_class_of(a)
-    fixed_children = [a for a in assets if a["asset_class"] == "Workstation Asset"]
-    mobile_children = [a for a in assets if a["asset_class"] == "Employee Asset"]
 
     emp = None
     acc = mongo.db.accountabilities.find_one(
@@ -686,9 +680,7 @@ def scan_workstation(record_id):
         employee_id=emp.get("employee_id", "") if emp else "",
         brand=doc.get("department", ""),
         workstation_info=None,
-        asset_class=None,
-        children=fixed_children,
-        mobile_children=mobile_children,
+        children=assets,
     )
 
 
@@ -728,28 +720,6 @@ def get_workstation_employee(workstation_id):
         if emp_oid:
             return mongo.db.employees.find_one({"_id": emp_oid})
     return None
-
-
-PORTABLE_DEVICE_TYPES = {"Laptop", "Phone", "Tablet", "Other"}
-ASSET_CLASSES = ("Employee Asset", "Workstation Asset")
-
-
-def asset_class_of(asset_or_type):
-    """Categorize an asset as portable (Employee Asset) or fixed (Workstation Asset).
-
-    Employee Assets move with the employee (laptops, phones). Workstation Assets
-    stay at the seat even when the employee leaves (monitors, desktops). Falls
-    back to a device-type mapping so legacy records without the field classify
-    consistently.
-    """
-    if isinstance(asset_or_type, dict):
-        explicit = asset_or_type.get("asset_class")
-        if explicit in ASSET_CLASSES:
-            return explicit
-        device_type = asset_or_type.get("device_type", "")
-    else:
-        device_type = asset_or_type or ""
-    return "Employee Asset" if device_type in PORTABLE_DEVICE_TYPES else "Workstation Asset"
 
 
 def create_accountability(employee_id, asset_ids, acc_type, notes=None, session=None):
@@ -879,12 +849,6 @@ def validate_asset_transfer(asset_id, target_type, target_id):
 
     # 4. Check target validity
     if target_type == "employee":
-        asset_class = asset_class_of(asset)
-        if asset_class == "Workstation Asset":
-            errors.append(
-                f"{asset['asset_tag']} is a Workstation Asset (fixed) and stays at its "
-                "workstation. Assign it to a workstation instead of an employee."
-            )
         emp = validate_employee(target_id)
         if not emp:
             errors.append("Target employee not found or inactive.")
@@ -1026,10 +990,6 @@ class AssetForm(FlaskForm):
         ("Printer", "Printer"), ("Phone", "Phone"), ("Tablet", "Tablet"),
         ("Network Equipment", "Network Equipment"), ("Peripheral", "Peripheral"),
         ("Server", "Server"), ("Other", "Other")
-    ])
-    asset_class = SelectField("Asset Category", choices=[
-        ("Employee Asset", "Employee Asset - portable, moves with the employee"),
-        ("Workstation Asset", "Workstation Asset - fixed, stays at the workstation"),
     ])
     model_name = StringField("Model Name", validators=[DataRequired()])
     manufacturer = StringField("Manufacturer", validators=[Optional()])
@@ -1327,12 +1287,9 @@ def detail(employee_id):
         ws_assets = list(mongo.db.assets.find(
             {"workstation_id": {"$in": list(ws_ids)}}, {"asset_tag": 1, "device_type": 1,
                                                        "model_name": 1, "serial_number": 1,
-                                                       "status": 1, "asset_class": 1})
+                                                       "status": 1})
         )
     for a in assets:
-        a["asset_class"] = asset_class_of(a)
-    for a in ws_assets:
-        a["asset_class"] = asset_class_of(a)
         a["workstation_name"] = ws_names.get(str(a.get("workstation_id")), "")
     ws_assets.sort(key=lambda a: a.get("workstation_name", ""))
 
@@ -1439,7 +1396,6 @@ def list_view():
 
     for a in assets:
         a["employee_name"] = employees_by_id.get(a.get("assigned_to"), "")
-        a["asset_class"] = asset_class_of(a)
 
     return render_template("assets/list.html", assets=[serialize_doc(a) for a in assets],
                             q=q, status_filter=status_filter, type_filter=type_filter,
@@ -1461,7 +1417,6 @@ def new():
             "endpoint_name": form.endpoint_name.data,
             "serial_number": form.serial_number.data,
             "device_type": form.device_type.data,
-            "asset_class": form.asset_class.data or asset_class_of(form.device_type.data),
             "model_name": form.model_name.data,
             "manufacturer": form.manufacturer.data,
             "os_version": form.os_version.data,
@@ -1494,7 +1449,6 @@ def new():
 @login_required
 def detail(asset_id):
     asset = get_or_404("assets", asset_id)
-    asset["asset_class"] = asset_class_of(asset)
     emp = None
     emp_oid = safe_object_id(asset.get("assigned_to"))
     if emp_oid:
@@ -1528,8 +1482,6 @@ def detail(asset_id):
 def edit(asset_id):
     asset = get_or_404("assets", asset_id)
     form = AssetForm(data={k: v for k, v in asset.items() if k != "_id"})
-    if not form.asset_class.data:
-        form.asset_class.data = asset_class_of(asset)
     if form.validate_on_submit():
         old = serialize_doc(asset)
         update = {
@@ -1537,7 +1489,6 @@ def edit(asset_id):
             "endpoint_name": form.endpoint_name.data,
             "serial_number": form.serial_number.data,
             "device_type": form.device_type.data,
-            "asset_class": form.asset_class.data or asset_class_of(form.device_type.data),
             "model_name": form.model_name.data,
             "manufacturer": form.manufacturer.data,
             "os_version": form.os_version.data,
@@ -1810,17 +1761,18 @@ def detail(ws_id):
             employees_by_id[str(emp["_id"])] = emp.get("full_name", "")
     for a in assets:
         a["employee_name"] = employees_by_id.get(a.get("assigned_to"), "")
-        a["asset_class"] = asset_class_of(a)
 
     remarks = list(mongo.db.remarks.find({"record_id": ws_id}).sort("created_at", -1))
     audits = list(mongo.db.audits.find({"workstation_id": ws_id}).sort("audit_date", -1))
 
     acc = mongo.db.accountabilities.find_one({"workstation_id": ws_id, "status": "Active"})
     emp = None
+    employee_assets = []
     if acc:
         emp_oid = safe_object_id(acc.get("employee_id"))
         if emp_oid:
             emp = mongo.db.employees.find_one({"_id": emp_oid})
+            employee_assets = list(mongo.db.assets.find({"assigned_to": str(emp_oid)}))
 
     qr_b64 = generate_workstation_qr(ws, emp, assets)
     all_employees = list(mongo.db.employees.find({"status": "Active"}).sort("full_name", 1))
@@ -1829,6 +1781,7 @@ def detail(ws_id):
     return render_template("workstations/detail.html",
                             ws=serialize_doc(ws),
                             assets=[serialize_doc(a) for a in assets],
+                            employee_assets=[serialize_doc(a) for a in employee_assets],
                             remarks=[serialize_doc(r) for r in remarks],
                             audits=[serialize_doc(a) for a in audits],
                             acc=serialize_doc(acc) if acc else None,
@@ -2283,23 +2236,10 @@ def close(acc_id):
     })
     asset_oids = [oid for oid in (safe_object_id(a) for a in acc.get("asset_ids", [])) if oid]
     if asset_oids:
-        portable, fixed = [], []
-        for a in mongo.db.assets.find({"_id": {"$in": asset_oids}},
-                                      {"asset_class": 1, "device_type": 1}):
-            (portable if asset_class_of(a) == "Employee Asset" else fixed).append(a["_id"])
-        if portable:
-            mongo.db.assets.update_many(
-                {"_id": {"$in": portable}},
-                {"$set": {"status": "Available", "assigned_to": None,
-                          "workstation_id": None, "updated_at": datetime.utcnow()}}
-            )
-        if fixed:
-            # Workstation assets stay at their seat; only released from the person.
-            mongo.db.assets.update_many(
-                {"_id": {"$in": fixed}},
-                {"$set": {"status": "Available", "assigned_to": None,
-                          "updated_at": datetime.utcnow()}}
-            )
+        mongo.db.assets.update_many(
+            {"_id": {"$in": asset_oids}},
+            {"$set": {"status": "Available", "assigned_to": None, "updated_at": datetime.utcnow()}}
+        )
     audit_log("Accountabilities", "Close", record_id=acc["_id"])
     flash("Accountability closed.", "info")
     return redirect(url_for("accountabilities.detail", acc_id=acc_id))
@@ -2713,7 +2653,6 @@ def export_assets():
         "Endpoint Name": a.get("endpoint_name", ""),
         "Serial Number": a.get("serial_number", ""),
         "Device Type": a.get("device_type", ""),
-        "Category": asset_class_of(a),
         "Model Name": a.get("model_name", ""),
         "OS Version": a.get("os_version", ""),
         "Location": a.get("location", ""),

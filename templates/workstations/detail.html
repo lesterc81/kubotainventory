@@ -63,12 +63,14 @@
   </div>
 </div>
 
-<!-- Assets at Workstation -->
+<!-- Assets: Workstation Assets / Employee Assets tabs -->
 <div class="card">
-  <div class="card-header">
-    <div class="card-title"><span class="material-icons-round">devices</span> Assets ({{ assets|length }})</div>
+  <div class="tab-bar">
+    <div class="tab-item active" data-tab="tab-ws-assets">Workstation Assets ({{ assets|length }})</div>
+    <div class="tab-item" data-tab="tab-emp-assets">Employee Assets ({{ employee_assets|length }})</div>
   </div>
-  <div class="card-body">
+
+  <div id="tab-ws-assets" class="tab-panel active">
     {% if assets %}
     <div class="table-wrapper">
       <table>
@@ -78,7 +80,6 @@
             <th>Type</th>
             <th>Model</th>
             <th>Serial Number</th>
-            <th>Category</th>
             <th>Assigned To</th>
             <th>Status</th>
             <th>Actions</th>
@@ -91,15 +92,6 @@
             <td>{{ asset.device_type }}</td>
             <td>{{ asset.model_name }}</td>
             <td>{{ asset.serial_number }}</td>
-            <td>
-              {% if asset.asset_class == 'Workstation Asset' %}
-              <span class="badge badge-workstation-asset">Workstation</span>
-              {% elif asset.asset_class == 'Employee Asset' %}
-              <span class="badge badge-employee-asset">Employee</span>
-              {% else %}
-              —
-              {% endif %}
-            </td>
             <td>{{ asset.employee_name or 'Unassigned' }}</td>
             <td><span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span></td>
             <td>
@@ -124,6 +116,49 @@
     <div class="empty-state">
       <span class="material-icons-round">devices</span>
       <p>No assets assigned to this workstation.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div id="tab-emp-assets" class="tab-panel">
+    {% if emp %}
+    <p class="text-muted" style="padding:12px 20px 0">Assets assigned to {{ emp.full_name }}, the employee accountable for this workstation.</p>
+    {% endif %}
+    {% if employee_assets %}
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset Tag</th>
+            <th>Type</th>
+            <th>Model</th>
+            <th>Serial Number</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for asset in employee_assets %}
+          <tr>
+            <td><a href="{{ url_for('assets.detail', asset_id=asset.id) }}">{{ asset.asset_tag }}</a></td>
+            <td>{{ asset.device_type }}</td>
+            <td>{{ asset.model_name }}</td>
+            <td>{{ asset.serial_number }}</td>
+            <td><span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span></td>
+            <td>
+              <a href="{{ url_for('assets.detail', asset_id=asset.id) }}" class="btn btn-sm btn-outline">
+                <span class="material-icons-round">visibility</span>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="material-icons-round">person</span>
+      <p>No employee assets — this workstation has no accountable employee with assigned assets.</p>
     </div>
     {% endif %}
   </div>
@@ -186,4 +221,15 @@
     {% endif %}
   </div>
 </div>
+
+<script>
+document.querySelectorAll('.tab-item').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById(this.dataset.tab).classList.add('active');
+  });
+});
+</script>
 {% endblock %}
