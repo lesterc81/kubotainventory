@@ -38,10 +38,11 @@
   </div>
 </div>
 
-<!-- Assigned Assets -->
+<!-- Employee Assets (portable, move with the employee) -->
 <div class="card">
   <div class="card-header">
-    <div class="card-title"><span class="material-icons-round">devices</span> Assigned Assets ({{ assets|length }})</div>
+    <div class="card-title"><span class="material-icons-round">devices</span> Employee Assets ({{ assets|length }})</div>
+    <span class="badge badge-employee-asset">Move with employee</span>
   </div>
   <div class="card-body">
     {% if assets %}
@@ -76,7 +77,48 @@
     </table>
     </div>
     {% else %}
-    <p class="text-muted">No assets assigned to this employee.</p>
+    <p class="text-muted">No portable assets assigned directly to this employee.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Workstation Assets (fixed, stay at the desk) -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">desktop_windows</span> Workstation Assets ({{ ws_assets|length }})</div>
+    <span class="badge badge-workstation-asset">Stay at workstation</span>
+  </div>
+  <div class="card-body">
+    {% if ws_assets %}
+    <p class="text-muted">Fixed assets at the workstation(s) this employee is accountable for. They stay at the seat when the employee leaves.</p>
+    <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Asset Tag</th>
+          <th>Workstation</th>
+          <th>Type</th>
+          <th>Model</th>
+          <th>Serial Number</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for asset in ws_assets %}
+        <tr>
+          <td><a href="{{ url_for('assets.detail', asset_id=asset.id) }}">{{ asset.asset_tag }}</a></td>
+          <td>{{ asset.workstation_name or '—' }}</td>
+          <td>{{ asset.device_type }}</td>
+          <td>{{ asset.model_name }}</td>
+          <td>{{ asset.serial_number }}</td>
+          <td><span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No workstation assets — the employee has no active workstation accountability with assets.</p>
     {% endif %}
   </div>
 </div>

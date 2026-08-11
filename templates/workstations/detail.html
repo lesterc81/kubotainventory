@@ -78,6 +78,7 @@
             <th>Type</th>
             <th>Model</th>
             <th>Serial Number</th>
+            <th>Category</th>
             <th>Assigned To</th>
             <th>Status</th>
             <th>Actions</th>
@@ -90,6 +91,15 @@
             <td>{{ asset.device_type }}</td>
             <td>{{ asset.model_name }}</td>
             <td>{{ asset.serial_number }}</td>
+            <td>
+              {% if asset.asset_class == 'Workstation Asset' %}
+              <span class="badge badge-workstation-asset">Workstation</span>
+              {% elif asset.asset_class == 'Employee Asset' %}
+              <span class="badge badge-employee-asset">Employee</span>
+              {% else %}
+              —
+              {% endif %}
+            </td>
             <td>{{ asset.employee_name or 'Unassigned' }}</td>
             <td><span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span></td>
             <td>

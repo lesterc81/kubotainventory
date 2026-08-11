@@ -61,6 +61,10 @@
           {{ form.device_type(class="form-control") }}
         </div>
         <div class="form-group">
+          <label>Asset Category *</label>
+          {{ form.asset_class(class="form-control") }}
+        </div>
+        <div class="form-group">
           <label>Model Name *</label>
           {{ form.model_name(class="form-control", placeholder="ThinkPad X1 Carbon") }}
           {% for e in form.model_name.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
@@ -139,4 +143,19 @@
     </div>
   </form>
 </div>
+
+<script>
+const CLASS_DEFAULTS = {"Laptop":"Employee Asset","Desktop":"Workstation Asset","Monitor":"Workstation Asset","Printer":"Workstation Asset","Phone":"Employee Asset","Tablet":"Employee Asset","Network Equipment":"Workstation Asset","Peripheral":"Workstation Asset","Server":"Workstation Asset","Other":"Employee Asset"};
+const $deviceType = document.querySelector('[name="device_type"]');
+const $assetClass = document.querySelector('[name="asset_class"]');
+function syncAssetClass(override) {
+  if (!$deviceType || !$assetClass) return;
+  const preferred = override || CLASS_DEFAULTS[$deviceType.value];
+  if (Array.from($assetClass.options).some(o => o.value === preferred)) {
+    $assetClass.value = preferred;
+  }
+}
+if ($deviceType) $deviceType.addEventListener('change', () => syncAssetClass());
+if ($assetClass && !$assetClass.value) syncAssetClass();
+</script>
 {% endblock %}

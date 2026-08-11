@@ -19,6 +19,8 @@
   --stamp-gold-light: #F3EDDE;
   --stamp-blue: #3A6B8C;
   --stamp-blue-light: #E4EDF2;
+  --stamp-teal: #00796B;
+  --stamp-teal-light: #DFF2EF;
   --radius: 14px;
   --radius-sm: 8px;
   --radius-asym: 16px 18px 14px 20px;
@@ -47,6 +49,8 @@
   --stamp-green-light: #0E1E14;
   --stamp-gold-light: #1E180C;
   --stamp-blue-light: #0E1A24;
+  --stamp-teal: #4FAF9E;
+  --stamp-teal-light: #0A1A17;
   --shadow: 4px 4px 0 var(--border-ink);
   --shadow-sm: 2px 2px 0 var(--border-ink);
   --shadow-md: 6px 6px 0 var(--border-ink);
@@ -594,6 +598,8 @@ tbody td:first-child { font-weight: 600; }
 }
 .badge-active, .badge-available, .badge-success, .badge-completed { border-color: var(--stamp-green); background: var(--stamp-green-light); color: var(--stamp-green); }
 .badge-assigned, .badge-info { border-color: var(--stamp-blue); background: var(--stamp-blue-light); color: var(--stamp-blue); }
+.badge-employee-asset { border-color: var(--stamp-green); background: var(--stamp-green-light); color: var(--stamp-green); }
+.badge-workstation-asset { border-color: var(--stamp-teal); background: var(--stamp-teal-light); color: var(--stamp-teal); }
 .badge-under-maintenance, .badge-on-leave, .badge-warning { border-color: var(--stamp-gold); background: var(--stamp-gold-light); color: var(--stamp-gold); }
 .badge-retired, .badge-resigned, .badge-danger, .badge-lost { border-color: var(--stamp-red); background: var(--stamp-red-light); color: var(--stamp-red); }
 .badge-inactive, .badge-disposed, .badge-neutral { border-color: var(--border); background: var(--paper); color: var(--ink-muted); }
