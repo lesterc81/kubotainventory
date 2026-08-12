@@ -32,8 +32,6 @@ from functools import wraps
 from urllib.parse import urlsplit, urlunsplit
 
 import bcrypt
-import pandas as pd
-import qrcode
 from bson import ObjectId
 from bson.errors import InvalidId
 from dotenv import load_dotenv
@@ -48,12 +46,6 @@ from flask_pymongo import PyMongo
 from flask_wtf import FlaskForm
 from flask_wtf.csrf import CSRFProtect
 from itsdangerous import URLSafeTimedSerializer
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, letter
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import inch
-from reportlab.platypus import (Paragraph, SimpleDocTemplate, Spacer, Table,
-                                 TableStyle)
 from wtforms import (BooleanField, DateField, HiddenField, PasswordField,
                       SelectField, StringField, TextAreaField)
 from wtforms.validators import DataRequired, Email, Length, Optional
@@ -412,6 +404,50 @@ def clear_dashboard_cache(key=None):
             _dash_cache.pop(key, None)
 
 
+_ref_data_cache = {}
+_ref_data_cache_lock = threading.Lock()
+REF_DATA_TTL_SECONDS = 15
+
+
+def get_reference_data(key, builder):
+    """TTL-cached access to small reference lists (dropdown data).
+
+    Returns a fresh list copy each call; the underlying list is refreshed from
+    the DB at most once every REF_DATA_TTL_SECONDS. Use clear_reference_data()
+    after employee/workstation writes when freshness matters immediately.
+    """
+    with _ref_data_cache_lock:
+        entry = _ref_data_cache.get(key)
+        if entry and time.time() - entry[0] < REF_DATA_TTL_SECONDS:
+            return list(entry[1])
+    value = list(builder())
+    with _ref_data_cache_lock:
+        _ref_data_cache[key] = (time.time(), value)
+    return list(value)
+
+
+def clear_reference_data(key=None):
+    with _ref_data_cache_lock:
+        if key is None:
+            _ref_data_cache.clear()
+        else:
+            _ref_data_cache.pop(key, None)
+
+
+def get_active_employees():
+    """Active employees, sorted by name, TTL-cached."""
+    return get_reference_data(
+        "active_employees",
+        lambda: mongo.db.employees.find({"status": "Active"}).sort("full_name", 1))
+
+
+def get_active_workstations():
+    """Active workstations, sorted by code, TTL-cached."""
+    return get_reference_data(
+        "active_workstations",
+        lambda: mongo.db.workstations.find({"status": "Active"}).sort("workstation_code", 1))
+
+
 _name_cache = {}
 _name_cache_lock = threading.Lock()
 
@@ -539,6 +575,7 @@ def _deliver_download(filename, buf_bytes, mimetype):
 
 def generate_qr(data_str, fill_color="black", back_color="white"):
     """Generic QR generator â€” encodes any string as base64 PNG."""
+    import qrcode
     qr = qrcode.QRCode(version=1, box_size=4, border=2,
                         error_correction=qrcode.constants.ERROR_CORRECT_M)
     qr.add_data(data_str)
@@ -906,6 +943,84 @@ def validate_asset_transfer(asset_id, target_type, target_id):
     }
 
 
+def perform_batch_transfer(asset_ids, target_type, target_id, reason, notes):
+    """Transfer a set of pre-validated assets to an employee or a workstation.
+
+    Used by the selectable batch-transfer pages (from a workstation or from an
+    employee). Each asset follows the same rules as a single transfer: the old
+    accountability is unwound per asset (closing it when empty), the asset is
+    relinked, and transfer history is recorded. asset_ids must already have
+    passed validate_asset_transfer().
+    """
+    if target_type == "employee":
+        target = validate_employee(target_id)
+        if not target:
+            return {"ok": False, "error": "Invalid employee selected."}
+        target_emp = None
+    elif target_type == "workstation":
+        target = validate_workstation(target_id)
+        if not target:
+            return {"ok": False, "error": "Invalid workstation selected."}
+        target_emp = get_workstation_employee(target_id)
+    else:
+        return {"ok": False, "error": "Unknown transfer target."}
+
+    def _do(session):
+        for aid in asset_ids:
+            current = mongo.db.assets.find_one({"_id": safe_object_id(aid)}, session=session)
+            if not current:
+                continue
+            old_ws = current.get("workstation_id")
+            old_emp = current.get("assigned_to")
+            update = {"updated_at": datetime.utcnow()}
+            if target_type == "employee":
+                update["assigned_to"] = target_id
+                update["status"] = "Assigned"
+            else:
+                update["workstation_id"] = target_id
+                if target_emp:
+                    update["assigned_to"] = str(target_emp["_id"])
+                    update["status"] = "Assigned"
+                else:
+                    update["assigned_to"] = None
+                    update["status"] = "Available"
+                if old_ws and str(old_ws) != target_id:
+                    mongo.db.workstations.update_one(
+                        {"_id": ObjectId(old_ws)}, {"$pull": {"assets": aid}}, session=session)
+                mongo.db.workstations.update_one(
+                    {"_id": ObjectId(target_id)}, {"$addToSet": {"assets": aid}}, session=session)
+            if old_emp or old_ws:
+                close_accountability_for_asset(aid, session=session)
+            mongo.db.assets.update_one(
+                {"_id": current["_id"]},
+                {
+                    "$set": update,
+                    "$push": {"history": {
+                        "type": "Batch Transfer",
+                        "from_employee": old_emp,
+                        "to_employee": update.get("assigned_to"),
+                        "from_workstation": old_ws,
+                        "to_workstation": update.get("workstation_id"),
+                        "reason": reason,
+                        "notes": notes,
+                        "date": datetime.utcnow().isoformat(),
+                        "by": current_user.username
+                    }}
+                },
+                session=session
+            )
+        return asset_ids
+
+    _run_in_transaction(_do)
+
+    if target_type == "employee":
+        create_accountability(target_id, asset_ids, "Batch Transfer", notes)
+    elif target_emp:
+        create_accountability(str(target_emp["_id"]), asset_ids, "Batch Transfer", notes)
+
+    return {"ok": True, "count": len(asset_ids), "target": target}
+
+
 # =============================================================================
 # User model
 # =============================================================================
@@ -1262,6 +1377,7 @@ def new():
         audit_log("Employees", "Create",
                    new_value={"employee_id": doc["employee_id"], "full_name": doc["full_name"]},
                    record_id=result.inserted_id)
+        clear_reference_data("active_employees")
         flash(f"Employee {form.full_name.data} created successfully.", "success")
         return redirect(url_for("employees.list_view"))
     return render_template("employees/form.html", form=form, title="New Employee")
@@ -1301,6 +1417,22 @@ def detail(employee_id):
                             remarks=[serialize_doc(r) for r in remarks])
 
 
+@employees_bp.route("/<employee_id>/transfer-assets", methods=["GET", "POST"])
+@login_required
+@editor_required
+def transfer_assets(employee_id):
+    """Transfer selected assets assigned to an employee to another employee or workstation."""
+    emp = get_or_404("employees", employee_id)
+    source = {
+        "kind": "employee",
+        "label": emp["full_name"],
+        "assets_query": {"assigned_to": employee_id, "status": "Assigned"},
+        "detail_url": url_for("employees.detail", employee_id=employee_id),
+        "back_label": emp["full_name"]
+    }
+    return _transfer_batch(source, emp)
+
+
 @employees_bp.route("/<employee_id>/edit", methods=["GET", "POST"])
 @login_required
 @editor_required
@@ -1333,6 +1465,7 @@ def edit(employee_id):
         }
         mongo.db.employees.update_one({"_id": emp["_id"]}, {"$set": update})
         audit_log("Employees", "Update", old_value=old, new_value=update, record_id=emp["_id"])
+        clear_reference_data("active_employees")
         flash("Employee updated successfully.", "success")
         return redirect(url_for("employees.detail", employee_id=employee_id))
     return render_template("employees/form.html", form=form, title="Edit Employee", emp=serialize_doc(emp))
@@ -1352,6 +1485,7 @@ def archive(employee_id):
     mongo.db.employees.update_one({"_id": emp["_id"]},
                                    {"$set": {"status": "Inactive", "updated_at": datetime.utcnow()}})
     audit_log("Employees", "Archive", record_id=emp["_id"])
+    clear_reference_data("active_employees")
     flash("Employee archived.", "info")
     return redirect(url_for("employees.list_view"))
 
@@ -1462,8 +1596,8 @@ def detail(asset_id):
     qr_b64 = generate_asset_qr(asset)
 
     # Available employees and workstations for transfer modals
-    available_employees = list(mongo.db.employees.find({"status": "Active"}).sort("full_name", 1))
-    available_workstations = list(mongo.db.workstations.find({"status": "Active"}).sort("workstation_code", 1))
+    available_employees = get_active_employees()
+    available_workstations = get_active_workstations()
 
     return render_template("assets/detail.html",
                             asset=serialize_doc(asset),
@@ -1545,8 +1679,8 @@ def transfer(asset_id):
             if ws_oid:
                 current_workstation = mongo.db.workstations.find_one({"_id": ws_oid})
 
-        available_employees = list(mongo.db.employees.find({"status": "Active"}).sort("full_name", 1))
-        available_workstations = list(mongo.db.workstations.find({"status": "Active"}).sort("workstation_code", 1))
+        available_employees = get_active_employees()
+        available_workstations = get_active_workstations()
 
         validation_errors = []
         if asset.get("status") in ["Retired", "Disposed", "Lost"]:
@@ -1742,6 +1876,7 @@ def new():
         result = mongo.db.workstations.insert_one(doc)
         audit_log("Workstations", "Create", new_value={"workstation_code": doc["workstation_code"]},
                    record_id=result.inserted_id)
+        clear_reference_data("active_workstations")
         flash(f"Workstation {form.workstation_code.data} created.", "success")
         return redirect(url_for("workstations.list_view"))
     return render_template("workstations/form.html", form=form, title="New Workstation")
@@ -1775,7 +1910,7 @@ def detail(ws_id):
             employee_assets = list(mongo.db.assets.find({"assigned_to": str(emp_oid)}))
 
     qr_b64 = generate_workstation_qr(ws, emp, assets)
-    all_employees = list(mongo.db.employees.find({"status": "Active"}).sort("full_name", 1))
+    all_employees = get_active_employees()
     available_assets = list(mongo.db.assets.find({"status": "Available"}).sort("asset_tag", 1))
 
     return render_template("workstations/detail.html",
@@ -1811,6 +1946,7 @@ def edit(ws_id):
         }
         mongo.db.workstations.update_one({"_id": ws["_id"]}, {"$set": update})
         audit_log("Workstations", "Update", old_value=old, new_value=update, record_id=ws["_id"])
+        clear_reference_data("active_workstations")
         flash("Workstation updated.", "success")
         return redirect(url_for("workstations.detail", ws_id=ws_id))
     return render_template("workstations/form.html", form=form, title="Edit Workstation", ws=serialize_doc(ws))
@@ -1830,102 +1966,100 @@ def archive(ws_id):
     mongo.db.workstations.update_one({"_id": ws["_id"]},
                                       {"$set": {"status": "Archived", "updated_at": datetime.utcnow()}})
     audit_log("Workstations", "Archive", record_id=ws["_id"])
+    clear_reference_data("active_workstations")
     flash("Workstation archived.", "info")
     return redirect(url_for("workstations.list_view"))
+
+
+def _transfer_batch_source_ctx():
+    all_employees = [serialize_doc(e) for e in get_active_employees()]
+    all_workstations = [serialize_doc(w) for w in get_active_workstations()]
+    return all_employees, all_workstations
+
+
+def _transfer_batch(source, doc):
+    """Common GET/POST handler for the selectable transfer page.
+
+    source = {
+        "kind": "workstation" | "employee",
+        "label": human-readable name of the source,
+        "assets_query": MongoDB query for the selectable assets,
+        "detail_url": where to redirect back,
+        "back_label": label for the back link
+    }
+    """
+    if request.method == "GET":
+        employees = list(mongo.db.employees.find({}))
+        workstations = list(mongo.db.workstations.find({}))
+        emp_map = {str(e["_id"]): e["full_name"] for e in employees}
+        ws_map = {str(w["_id"]): w["workstation_code"] for w in workstations}
+        assets = [serialize_doc(a) for a in mongo.db.assets.find(source["assets_query"])]
+        for asset in assets:
+            asset["_cur_emp"] = emp_map.get(str(asset.get("assigned_to")))
+            asset["_cur_ws"] = ws_map.get(str(asset.get("workstation_id")))
+        all_employees, all_workstations = _transfer_batch_source_ctx()
+        return render_template("transfers/batch.html",
+            source=source,
+            doc=serialize_doc(doc),
+            assets=assets,
+            all_employees=all_employees,
+            all_workstations=all_workstations,
+            asset_count=len(assets)
+        )
+
+    # POST: process the selected assets
+    target_type = request.form.get("target_type")
+    reason = request.form.get("reason", "").strip() or "Batch Transfer"
+    notes = request.form.get("notes", "").strip()
+
+    if target_type == "employee":
+        target_id = request.form.get("employee_id", "")
+    elif target_type == "workstation":
+        target_id = request.form.get("workstation_id", "")
+    else:
+        flash("Choose a transfer target (employee or workstation).", "error")
+        return redirect(source["detail_url"])
+
+    asset_ids = request.form.getlist("asset_ids")
+    if not asset_ids:
+        flash("Select at least one asset to transfer.", "error")
+        return redirect(source["detail_url"])
+
+    for aid in asset_ids:
+        validation = validate_asset_transfer(aid, target_type, target_id)
+        if not validation["valid"]:
+            tag = validation["asset"].get("asset_tag", aid)
+            flash(f"{tag}: " + "; ".join(validation["errors"]), "error")
+            return redirect(source["detail_url"])
+
+    result = perform_batch_transfer(asset_ids, target_type, target_id, reason, notes)
+    if not result["ok"]:
+        flash(result["error"], "error")
+        return redirect(source["detail_url"])
+
+    target = result["target"]
+    target_label = target["full_name"] if target_type == "employee" else target["workstation_code"]
+    audit_log("Assets", "Batch Transfer",
+        old_value={"from": source["label"], "count": len(asset_ids)},
+        new_value={"to_type": target_type, "to": target_label, "count": len(asset_ids)})
+    flash(f"Successfully transferred {len(asset_ids)} asset(s) to {target_label}.", "success")
+    return redirect(source["detail_url"])
 
 
 @workstations_bp.route("/<ws_id>/transfer-batch", methods=["GET", "POST"])
 @login_required
 @editor_required
 def transfer_batch(ws_id):
-    """Transfer all assets at a workstation to a new employee."""
+    """Transfer selected assets from a workstation to an employee or workstation."""
     ws = get_or_404("workstations", ws_id)
-    assets = list(mongo.db.assets.find({"workstation_id": ws_id}))
-
-    if request.method == "GET":
-        all_employees = list(mongo.db.employees.find({"status": "Active"}).sort("full_name", 1))
-
-        # Validate all assets
-        validation_results = []
-        invalid_count = 0
-        for asset in assets:
-            validation = validate_asset_transfer(str(asset["_id"]), "employee", None)
-            validation["asset"] = serialize_doc(asset)
-            if not validation["valid"]:
-                invalid_count += 1
-            validation_results.append(validation)
-
-        return render_template("workstations/transfer_batch.html",
-            ws=serialize_doc(ws),
-            assets=[serialize_doc(a) for a in assets],
-            all_employees=[serialize_doc(e) for e in all_employees],
-            validation_results=validation_results,
-            invalid_count=invalid_count
-        )
-
-    # POST: Process batch transfer
-    employee_id = request.form.get("employee_id")
-    reason = request.form.get("reason", "Workstation Transfer")
-    notes = request.form.get("notes", "")
-
-    # Validate employee
-    emp = validate_employee(employee_id)
-    if not emp:
-        flash("Invalid employee selected.", "error")
-        return redirect(url_for("workstations.transfer_batch", ws_id=ws_id))
-
-    def _do_batch(session):
-        # Close existing accountability
-        old_acc = mongo.db.accountabilities.find_one(
-            {"workstation_id": ws_id, "status": "Active"}, session=session)
-        if old_acc:
-            mongo.db.accountabilities.update_one(
-                {"_id": old_acc["_id"]},
-                {"$set": {"status": "Returned", "updated_at": datetime.utcnow()}},
-                session=session
-            )
-
-        # Update all assets
-        asset_ids = []
-        for asset in assets:
-            asset_ids.append(str(asset["_id"]))
-            mongo.db.assets.update_one(
-                {"_id": asset["_id"]},
-                {
-                    "$set": {
-                        "assigned_to": employee_id,
-                        "status": "Assigned",
-                        "updated_at": datetime.utcnow()
-                    },
-                    "$push": {
-                        "history": {
-                            "type": "Batch Workstation Transfer",
-                            "workstation": ws_id,
-                            "to_employee": employee_id,
-                            "reason": reason,
-                            "notes": notes,
-                            "date": datetime.utcnow().isoformat(),
-                            "by": current_user.username
-                        }
-                    }
-                },
-                session=session
-            )
-        return asset_ids
-
-    asset_ids = _run_in_transaction(_do_batch)
-
-    # Create new accountability
-    create_accountability(employee_id, asset_ids, "Workstation Transfer", notes)
-
-    audit_log("Workstations", "Batch Transfer",
-        old_value={"workstation": ws["workstation_code"], "asset_count": len(assets)},
-        new_value={"employee": emp["full_name"], "asset_count": len(assets)},
-        record_id=ws["_id"]
-    )
-
-    flash(f"Successfully transferred {len(assets)} assets to {emp['full_name']}", "success")
-    return redirect(url_for("workstations.detail", ws_id=ws_id))
+    source = {
+        "kind": "workstation",
+        "label": f"{ws['workstation_code']} ({ws.get('location', 'No location')})",
+        "assets_query": {"workstation_id": ws_id},
+        "detail_url": url_for("workstations.detail", ws_id=ws_id),
+        "back_label": ws["workstation_code"]
+    }
+    return _transfer_batch(source, ws)
 
 
 @workstations_bp.route("/<ws_id>/assign-asset", methods=["POST"])
@@ -2083,8 +2217,8 @@ def list_view():
 @editor_required
 def new():
     form = AccountabilityForm()
-    employees = list(mongo.db.employees.find({"status": "Active"}).sort("full_name", 1))
-    workstations = list(mongo.db.workstations.find({"status": "Active"}).sort("workstation_code", 1))
+    employees = get_active_employees()
+    workstations = get_active_workstations()
     assets_available = list(mongo.db.assets.find({"status": "Available"}).sort("asset_tag", 1))
     if form.validate_on_submit():
         try:
@@ -2159,7 +2293,7 @@ def new():
                               "updated_at": datetime.utcnow()}},
                     session=session
                 )
-            return inserted_id
+            return str(result.inserted_id)
 
         inserted_id = _run_in_transaction(_do_insert)
         audit_log("Accountabilities", "Create",
@@ -2588,6 +2722,7 @@ def import_inventory():
             return redirect(url_for("io.import_inventory"))
         filename = f.filename.lower()
         try:
+            import pandas as pd
             if filename.endswith(".csv"):
                 df = pd.read_csv(f)
             elif filename.endswith(".xlsx"):
@@ -2662,6 +2797,7 @@ def export_assets():
         "Warranty Expiry": a.get("warranty_expiry", ""),
         "Created": a.get("created_at", ""),
     } for a in assets]
+    import pandas as pd
     df = pd.DataFrame(rows)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
@@ -2681,6 +2817,7 @@ def export_employees():
              "Email": e.get("email"), "Department": e.get("department"),
              "Position": e.get("position"), "Site": e.get("site"),
              "Status": e.get("status")} for e in employees]
+    import pandas as pd
     df = pd.DataFrame(rows)
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="xlsxwriter") as writer:
@@ -2693,6 +2830,8 @@ def export_employees():
 
 
 def _pdf_header(elements, title, styles):
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Paragraph, Spacer
     elements.append(Paragraph(title, styles["Title"]))
     elements.append(Paragraph(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC", styles["Normal"]))
     elements.append(Spacer(1, 0.3 * inch))
@@ -2702,6 +2841,10 @@ def _pdf_header(elements, title, styles):
 @login_required
 def report_assets_pdf():
     assets = list(mongo.db.assets.find({"status": {"$nin": ["Disposed", "Retired"]}}))
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=letter)
     styles = getSampleStyleSheet()
@@ -2744,6 +2887,12 @@ def accountability_pdf(acc_id):
     asset_oids = [oid for oid in (safe_object_id(a) for a in acc.get("asset_ids", [])) if oid]
     assets = list(mongo.db.assets.find({"_id": {"$in": asset_oids}})) if asset_oids else []
 
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (Paragraph, SimpleDocTemplate, Spacer, Table,
+                                    TableStyle)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4)
     styles = getSampleStyleSheet()
@@ -2886,7 +3035,7 @@ def _iso_or_none(value):
 @api_bp.route("/employees")
 @login_required
 def employees_all():
-    employees = list(mongo.db.employees.find({"status": "Active"}).sort("full_name", 1))
+    employees = get_active_employees()
     return jsonify({"success": True, "data": [{
         "id": str(e["_id"]),
         "employee_id": e.get("employee_id", ""),

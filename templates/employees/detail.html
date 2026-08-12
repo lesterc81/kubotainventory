@@ -13,6 +13,11 @@
     <p>{{ emp.employee_id }} • {{ emp.position }} • {{ emp.department }}</p>
   </div>
   <div class="page-header-actions">
+    {% if current_user.can_edit() %}
+    <a href="{{ url_for('employees.transfer_assets', employee_id=emp.id) }}" class="btn btn-warning btn-sm">
+      <span class="material-icons-round">swap_horiz</span> Transfer Assets
+    </a>
+    {% endif %}
     <a href="{{ url_for('employees.edit', employee_id=emp.id) }}" class="btn btn-primary btn-sm">
       <span class="material-icons-round">edit</span> Edit
     </a>

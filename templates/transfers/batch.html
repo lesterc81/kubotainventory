@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}Transfer Assets — IT Asset System{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  {% if source.kind == "workstation" %}
+    <a href="{{ url_for('workstations.list_view') }}">Workstations</a>
+  {% else %}
+    <a href="{{ url_for('employees.list_view') }}">Employees</a>
+  {% endif %}
+  <span class="material-icons-round">chevron_right</span>
+  <a href="{{ source.detail_url }}">{{ source.back_label }}</a>
+  <span class="material-icons-round">chevron_right</span>
+  <span>Transfer Assets</span>
+</div>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Transfer Assets</h1>
+    <p>Transfer selected assets from <strong>{{ source.label }}</strong></p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ source.detail_url }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">arrow_back</span> Back
+    </a>
+  </div>
+</div>
+
+<form method="POST" id="batchTransferForm">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="material-icons-round">select_all</span>
+        Select Assets
+        <span class="badge badge-info" id="assetCountBadge">{{ assets|length }}</span>
+      </div>
+      <div class="card-actions">
+        <label class="checkbox-inline">
+          <input type="checkbox" id="selectAllCheckbox" {% if assets|length <= 25 %}checked{% endif %}>
+          Select / Deselect All
+        </label>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="alert alert-info">
+        <span class="material-icons-round">info</span>
+        <div>
+          <strong>You're about to transfer assets from {{ source.label }}.</strong>
+          <br>
+          Check the assets to move, then choose where they should go. Unchecked assets stay where they are.
+        </div>
+      </div>
+
+      {% if assets %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40px;">
+                <input type="checkbox" id="selectAllCheckboxHeader" {% if assets|length <= 25 %}checked{% endif %}>
+              </th>
+              <th>Asset Tag</th>
+              <th>Type</th>
+              <th>Serial Number</th>
+              <th>Status</th>
+              <th>Current Assignment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for asset in assets %}
+            <tr>
+              <td>
+                <input type="checkbox" name="asset_ids" value="{{ asset.id }}" class="asset-checkbox" checked>
+              </td>
+              <td><strong>{{ asset.asset_tag }}</strong></td>
+              <td>{{ asset.device_type }}</td>
+              <td>{{ asset.serial_number }}</td>
+              <td>
+                <span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span>
+              </td>
+              <td>
+                {% if asset._cur_emp %}
+                  {{ asset._cur_emp }}
+                {% else %}
+                  <span class="text-muted">Not Assigned</span>
+                {% endif %}
+                {% if asset._cur_ws %}
+                  <br><small class="text-muted">{{ asset._cur_ws }}</small>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="alert alert-warning">
+        <span class="material-icons-round">warning</span>
+        <div>There are no assets available to transfer from this source.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="material-icons-round">swap_horiz</span>
+        Transfer Destination
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Transfer To *</label>
+          <div class="radio-group">
+            <label class="radio-inline">
+              <input type="radio" name="target_type" value="employee" checked onchange="toggleTargetFields()">
+              Transfer to Employee
+            </label>
+            <label class="radio-inline">
+              <input type="radio" name="target_type" value="workstation" onchange="toggleTargetFields()">
+              Transfer to Workstation
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group full" id="employeeSelectGroup">
+          <label>Employee *</label>
+          <select name="employee_id" class="form-control" required>
+            <option value="">-- Select Employee --</option>
+            {% for emp in all_employees %}
+            <option value="{{ emp.id }}">
+              {{ emp.full_name }} ({{ emp.employee_id }}) - {{ emp.department }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group full" id="workstationSelectGroup" style="display: none;">
+          <label>Workstation *</label>
+          <select name="workstation_id" class="form-control">
+            <option value="">-- Select Workstation --</option>
+            {% for ws in all_workstations %}
+            <option value="{{ ws.id }}">{{ ws.workstation_code }} - {{ ws.location }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group full">
+          <label>Reason</label>
+          <input type="text" name="reason" class="form-control" value="Batch Transfer" placeholder="e.g. Replacement, Reassignment, Office move">
+        </div>
+
+        <div class="form-group full">
+          <label>Notes</label>
+          <textarea name="notes" class="form-control" rows="3" placeholder="Additional details..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button type="submit" class="btn btn-primary" id="submitBtn" {% if not assets %}disabled{% endif %}>
+        <span class="material-icons-round">sync</span>
+        Transfer <span id="submitCount">{{ assets|length }}</span> Selected Asset(s)
+      </button>
+      <a href="{{ source.detail_url }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </div>
+</form>
+
+<script>
+function toggleTargetFields() {
+  const targetType = document.querySelector('input[name="target_type"]:checked').value;
+  const empGroup = document.getElementById('employeeSelectGroup');
+  const wsGroup = document.getElementById('workstationSelectGroup');
+  const empSel = empGroup.querySelector('select');
+  const wsSel = wsGroup.querySelector('select');
+  if (targetType === 'employee') {
+    empGroup.style.display = '';
+    wsGroup.style.display = 'none';
+    empSel.required = true;
+    wsSel.required = false;
+    wsSel.disabled = true;
+  } else {
+    empGroup.style.display = 'none';
+    wsGroup.style.display = '';
+    empSel.required = false;
+    empSel.disabled = true;
+    wsSel.required = true;
+  }
+}
+
+function refreshSelectedCount() {
+  const checked = document.querySelectorAll('input.asset-checkbox:checked').length;
+  document.getElementById('submitCount').textContent = checked;
+}
+
+function syncSelectAll() {
+  const headerAll = document.getElementById('selectAllCheckboxHeader');
+  const cardAll = document.getElementById('selectAllCheckbox');
+  const checked = document.querySelectorAll('input.asset-checkbox:checked').length;
+  const total = document.querySelectorAll('input.asset-checkbox').length;
+  const allOn = checked === total;
+  headerAll.checked = allOn;
+  cardAll.checked = allOn;
+  refreshSelectedCount();
+}
+
+function setAll(checked) {
+  document.querySelectorAll('input.asset-checkbox').forEach(function (cb) { cb.checked = checked; });
+  syncSelectAll();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const headerAll = document.getElementById('selectAllCheckboxHeader');
+  const cardAll = document.getElementById('selectAllCheckbox');
+  headerAll.addEventListener('change', function () { setAll(headerAll.checked); });
+  cardAll.addEventListener('change', function () { setAll(cardAll.checked); });
+  document.querySelectorAll('input.asset-checkbox').forEach(function (cb) {
+    cb.addEventListener('change', syncSelectAll);
+  });
+  toggleTargetFields();
+  syncSelectAll();
+});
+</script>
+{% endblock %}
