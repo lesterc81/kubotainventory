@@ -16,7 +16,7 @@ import threading
 import time
 
 APP_TITLE = "IT Asset System"
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.3.0"
 WINDOW_TITLE = f"{APP_TITLE} v{APP_VERSION}"
 
 
