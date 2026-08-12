@@ -4,15 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Asset Receipt Confirmation</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prata&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'DM Sans', sans-serif;
-      background: #F3EFE6;
+      background: #F6F5F3;
       display: flex;
       justify-content: center;
       align-items: flex-start;
@@ -20,50 +17,48 @@
       padding: 16px;
     }
     .card {
-      background: #FAF8F3;
-      border: 2.5px solid #221E18;
-      border-radius: 16px 18px 14px 20px;
-      box-shadow: 4px 4px 0 #221E18;
+      background: #FFFFFF;
+      border: 1px solid #E6E4E0;
+      border-radius: 16px;
+      box-shadow: 0 18px 44px rgba(30, 28, 26, 0.12), 0 4px 12px rgba(30, 28, 26, 0.05);
       max-width: 460px;
       width: 100%;
       overflow: hidden;
       margin-top: 16px;
     }
     .card-header {
-      background: {% if ok %}#1E7A3C{% else %}#C73E3E{% endif %};
+      background: {% if ok %}#2F7D52{% else %}#B03A2A{% endif %};
       color: white;
       padding: 28px 24px;
       text-align: center;
-      border-bottom: 2.5px solid #221E18;
     }
     .card-header .icon { font-size: 48px; margin-bottom: 8px; }
-    .card-header h1 { font-family: 'Prata', serif; font-weight: 400; font-size: 20px; }
-    .card-body { padding: 24px; font-size: 14px; color: #3a342b; line-height: 1.6; }
+    .card-header h1 { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 20px; }
+    .card-body { padding: 24px; font-size: 14px; color: #262422; line-height: 1.6; }
     .card-body .item {
-      border: 2px solid #221E18;
-      border-radius: 10px 12px 8px 14px;
+      border: 1px solid #E6E4E0;
+      border-radius: 10px;
       padding: 12px 14px;
       margin-bottom: 10px;
-      background: #fff;
+      background: #F6F5F3;
     }
-    .item .label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #8A7F72; margin-bottom: 2px; }
-    .item .value { font-weight: 700; color: #221E18; }
-    .meta { margin-top: 16px; font-size: 12px; color: #8A7F72; }
+    .item .label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #6E6A64; margin-bottom: 2px; }
+    .item .value { font-weight: 700; color: #262422; }
+    .meta { margin-top: 16px; font-size: 12px; color: #6E6A64; }
     .btn {
       display: block;
       text-align: center;
       margin-top: 16px;
-      background: #221E18;
-      color: #FAF8F3;
+      background: #B03A2A;
+      color: #fff;
       padding: 13px 20px;
       border-radius: 10px;
       text-decoration: none;
       font-weight: 700;
       font-size: 14px;
-      border: 2px solid #221E18;
-      box-shadow: 3px 3px 0 #C73E3E;
+      border: none;
     }
-    .btn.secondary { background: #fff; color: #221E18; box-shadow: none; }
+    .btn.secondary { background: #F6F5F3; color: #262422; border: 1px solid #D2CFC8; }
   </style>
 </head>
 <body>

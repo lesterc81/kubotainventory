@@ -3,14 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <title>Workstation Stickers — IT Asset System</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Manrope', sans-serif; background: #fff; color: #17120E; }
+  body { font-family: 'DM Sans', sans-serif; background: #fff; color: #17120E; }
   .no-print { padding: 16px; background: #EAB308; color: #17120E; display: flex; align-items: center; gap: 12px; }
-  .no-print button { padding: 8px 20px; background: #17120E; color: white; border: none; border-radius: 50px; font-weight: 700; cursor: pointer; font-family: 'Manrope', sans-serif; font-size: 13px; }
+  .no-print button { padding: 8px 20px; background: #17120E; color: white; border: none; border-radius: 50px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; }
   .no-print button:hover { opacity: 0.9; }
   .stickers-grid { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; }
   .sticker-card {

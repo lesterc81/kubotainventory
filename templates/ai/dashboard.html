@@ -92,22 +92,23 @@
 <script>
 function runScan(btn) {
   if (btn.disabled) return;
+  btn.classList.add('is-loading');
   btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons-round">hourglass_top</span> Scanning...';
   fetch('{{ url_for("ai.scan") }}',
         { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
     .then(r => r.json())
     .then(data => {
       if (data.found > 0) { location.reload(); return; }
+      btn.classList.remove('is-loading');
       btn.disabled = false;
-      btn.innerHTML = '<span class="material-icons-round">refresh</span> Scan Now';
       alert('No new anomalies detected.');
     })
-    .catch(() => { btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">refresh</span> Scan Now'; alert('Scan failed.'); });
+    .catch(() => { btn.classList.remove('is-loading'); btn.disabled = false; alert('Scan failed.'); });
 }
 
 function acknowledge(id, btn) {
   if (btn.disabled) return;
+  btn.classList.add('is-loading');
   btn.disabled = true;
   fetch('{{ url_for("ai.acknowledge", anomaly_id="") }}' + id,
         { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
@@ -118,27 +119,33 @@ function acknowledge(id, btn) {
     .then(() => {
       btn.closest('tr').style.opacity = '0.4';
       btn.disabled = true;
-      btn.textContent = 'Acknowledged';
+      btn.classList.remove('is-loading');
+      btn.innerHTML = '<span class="material-icons-round">done</span> Acknowledged';
     })
-    .catch(err => { btn.disabled = false; btn.textContent = 'Ack'; alert('Acknowledge failed (' + err.message + ')'); });
+    .catch(err => { btn.classList.remove('is-loading'); btn.disabled = false; btn.innerHTML = '<span class="material-icons-round">done</span> Acknowledge'; alert('Acknowledge failed (' + err.message + ')'); });
 }
 
 function generateReport(btn) {
   if (btn.disabled) return;
+  btn.classList.add('is-loading');
   btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons-round">hourglass_top</span> Generating...';
+  var card = document.getElementById('reportResult');
+  var el = document.getElementById('reportContent');
+  card.style.display = 'block';
+  el.innerHTML = '<div class="skeleton is-line" style="width:38%"></div>' +
+                 '<div class="skeleton is-line mt-1"></div>' +
+                 '<div class="skeleton is-line mt-1" style="width:82%"></div>' +
+                 '<div class="skeleton is-block mt-2"></div>';
   fetch('{{ url_for("ai.generate_report") }}',
         { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
     .then(r => r.json())
     .then(data => {
-      const el = document.getElementById('reportContent');
       el.innerHTML = '<strong>Summary Report</strong>\n\n' + data.summary + '\n\n<hr>\n\n<strong>Anomaly Analysis</strong>\n\n' + data.analysis;
-      document.getElementById('reportResult').style.display = 'block';
     })
-    .catch(() => alert('Report generation failed.'))
+    .catch(() => { el.innerHTML = '<p class="text-muted">Report generation failed.</p>'; })
     .finally(() => {
+      btn.classList.remove('is-loading');
       btn.disabled = false;
-      btn.innerHTML = '<span class="material-icons-round">auto_awesome</span> Generate Report';
     });
 }
 </script>

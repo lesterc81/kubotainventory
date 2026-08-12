@@ -50,13 +50,13 @@
 <script>
 function generateReport(btn) {
   if (btn.disabled) return;
+  btn.classList.add('is-loading');
   btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons-round">hourglass_top</span> Generating...';
   fetch('{{ url_for("ai.generate_report") }}',
         { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
     .then(r => r.json())
     .then(() => location.reload())
-    .catch(() => { btn.disabled = false; alert('Report generation failed.'); });
+    .catch(() => { btn.classList.remove('is-loading'); btn.disabled = false; alert('Report generation failed.'); });
 }
 </script>
 {% endblock %}

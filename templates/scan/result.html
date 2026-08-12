@@ -4,15 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>{{ type }}: {{ tag }}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prata&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
   <style>
+    :root {
+      --bg: #F6F5F3; --surface: #FFFFFF; --border: #E6E4E0; --border-strong: #D2CFC8;
+      --ink: #262422; --muted: #6E6A64; --subtle: #A6A19A;
+      --accent: #B03A2A; --success: #2F7D52; --info: #3F6D93; --warning: #A9711B; --danger: #C0392B;
+      --shadow: 0 18px 44px rgba(30,28,26,.12), 0 4px 12px rgba(30,28,26,.05);
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'DM Sans', sans-serif;
-      background: #F3EFE6;
+      background: var(--bg);
       display: flex;
       justify-content: center;
       align-items: flex-start;
@@ -20,27 +23,26 @@
       padding: 16px;
     }
     .card {
-      background: #FAF8F3;
-      border: 2.5px solid #221E18;
-      border-radius: 16px 18px 14px 20px;
-      box-shadow: 4px 4px 0 #221E18;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
       max-width: 440px;
       width: 100%;
       overflow: hidden;
       margin-top: 16px;
     }
     .card-header {
-      background: {{ '#C73E3E' if type == 'Asset' else '#221E18' }};
+      background: {% if type == 'Workstation' %}var(--ink){% else %}var(--accent){% endif %};
       color: white;
       padding: 24px;
       text-align: center;
-      border-bottom: 2.5px solid #221E18;
     }
     .card-header .icon { font-size: 48px; margin-bottom: 8px; }
     .card-header h1 {
-      font-family: 'Prata', Georgia, serif;
+      font-family: 'DM Sans', sans-serif;
       font-size: 22px;
-      font-weight: 400;
+      font-weight: 700;
       word-break: break-word;
       line-height: 1.2;
     }
@@ -62,7 +64,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: #8A7F72;
+      color: var(--muted);
       margin: 16px 0 8px;
     }
     .section-title:first-child { margin-top: 0; }
@@ -70,11 +72,11 @@
       display: flex;
       justify-content: space-between;
       padding: 9px 0;
-      border-bottom: 1.5px solid #D4C9B8;
+      border-bottom: 1px solid var(--border);
     }
     .field:last-child { border-bottom: none; }
-    .field-label { color: #8A7F72; font-size: 13px; }
-    .field-value { font-weight: 600; font-size: 14px; text-align: right; max-width: 60%; color: #221E18; }
+    .field-label { color: var(--muted); font-size: 13px; }
+    .field-value { font-weight: 600; font-size: 14px; text-align: right; max-width: 60%; color: var(--ink); }
     .status-dot {
       display: inline-block;
       width: 8px; height: 8px;
@@ -82,26 +84,26 @@
       margin-right: 6px;
       border: 1.5px solid;
     }
-    .status-Assigned { background: #2B6C4B; border-color: #2B6C4B; }
-    .status-Available { background: #3A6B8C; border-color: #3A6B8C; }
-    .status-Under { background: #A6781A; border-color: #A6781A; }
-    .status-Archived { background: #B8AD9E; border-color: #B8AD9E; }
-    .status-Retired { background: #C73E3E; border-color: #C73E3E; }
+    .status-Assigned { background: var(--success); border-color: var(--success); }
+    .status-Available { background: var(--info); border-color: var(--info); }
+    .status-Under { background: var(--warning); border-color: var(--warning); }
+    .status-Archived { background: var(--subtle); border-color: var(--subtle); }
+    .status-Retired { background: var(--danger); border-color: var(--danger); }
     .child-item {
-      background: #F3EFE6;
-      border: 2px solid #D4C9B8;
+      background: var(--bg);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 12px;
       margin-bottom: 8px;
     }
     .child-item:last-child { margin-bottom: 0; }
-    .child-tag { font-weight: 700; font-size: 14px; color: #221E18; }
-    .child-detail { font-size: 12px; color: #8A7F72; margin-top: 2px; }
-    .child-row { display: flex; justify-content: space-between; font-size: 12px; color: #B8AD9E; margin-top: 4px; }
+    .child-tag { font-weight: 700; font-size: 14px; color: var(--ink); }
+    .child-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .child-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--subtle); margin-top: 4px; }
     .child-row span { font-family: 'JetBrains Mono', monospace; }
     .assigned-block {
-      background: #E4F0EA;
-      border: 2px solid #2B6C4B;
+      background: color-mix(in srgb, var(--success) 9%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--success) 45%, transparent);
       border-radius: 10px;
       padding: 12px;
       display: flex;
@@ -111,7 +113,7 @@
     .assigned-block .avatar {
       width: 40px; height: 40px;
       border-radius: 50%;
-      background: #2B6C4B;
+      background: var(--success);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -119,34 +121,26 @@
       font-size: 18px;
       font-weight: 700;
     }
-    .assigned-block .name { font-weight: 700; font-size: 14px; color: #221E18; }
-    .assigned-block .emp-id { font-size: 12px; color: #8A7F72; }
+    .assigned-block .name { font-weight: 700; font-size: 14px; color: var(--ink); }
+    .assigned-block .emp-id { font-size: 12px; color: var(--muted); }
     .card-footer {
       padding: 12px 24px 20px;
       text-align: center;
-      border-top: 2px solid #D4C9B8;
+      border-top: 1px solid var(--border);
     }
     .card-footer a {
-      color: #221E18;
+      color: var(--ink);
       font-size: 13px;
       text-decoration: none;
       font-weight: 600;
-      font-family: 'Prata', Georgia, serif;
     }
-    .card-footer a:hover { color: #C73E3E; text-decoration: underline; }
+    .card-footer a:hover { color: var(--accent); text-decoration: underline; }
     @media (prefers-color-scheme: dark) {
-      body { background: #1A1714; }
-      .card { background: #24201C; border-color: #EDE4DC; box-shadow: 4px 4px 0 #EDE4DC; }
-      .card-header { border-bottom-color: #EDE4DC; }
-      .field { border-bottom-color: #3A3430; }
-      .field-label { color: #8A7F72; }
-      .field-value { color: #EDE4DC; }
-      .child-item { background: #2A2522; border-color: #3A3430; }
-      .child-detail { color: #8A7F72; }
-      .child-row { color: #5C534A; }
-      .assigned-block { background: #0E1E14; border-color: #2B6C4B; }
-      .card-footer { border-top-color: #3A3430; }
-      .card-footer a { color: #EDE4DC; }
+      :root {
+        --bg: #141312; --surface: #1C1A19; --border: #2C2A27; --border-strong: #3E3B37;
+        --ink: #EDEAE6; --muted: #A6A09A; --subtle: #716C66;
+        --accent: #D45543; --success: #58A678; --info: #77A2C4; --warning: #C99A3E; --danger: #E0685B;
+      }
     }
   </style>
 </head>

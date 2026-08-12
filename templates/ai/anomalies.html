@@ -93,8 +93,8 @@
 <script>
 function acknowledge(id, btn) {
   if (btn.disabled) return;
+  btn.classList.add('is-loading');
   btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons-round">hourglass_top</span>...';
   fetch('{{ url_for("ai.acknowledge", anomaly_id="") }}' + id,
         { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
     .then(async r => {
@@ -104,8 +104,8 @@ function acknowledge(id, btn) {
     })
     .then(() => location.reload())
     .catch(err => {
+      btn.classList.remove('is-loading');
       btn.disabled = false;
-      btn.innerHTML = '<span class="material-icons-round">done</span> Ack';
       alert('Acknowledge failed (' + err.message + ')');
     });
 }
@@ -113,12 +113,13 @@ function acknowledge(id, btn) {
 function removeAnomaly(id, btn) {
   if (!confirm('Delete this anomaly record?')) return;
   if (btn.disabled) return;
+  btn.classList.add('is-loading');
   btn.disabled = true;
   fetch('{{ url_for("ai.delete_anomaly", anomaly_id="") }}' + id,
         { method: 'POST', headers: csrfHeaders({ 'Content-Type': 'application/json' }) })
     .then(r => r.json())
     .then(() => location.reload())
-    .catch(() => { btn.disabled = false; alert('Failed to delete anomaly.'); });
+    .catch(() => { btn.classList.remove('is-loading'); btn.disabled = false; alert('Failed to delete anomaly.'); });
 }
 
 function clearAcknowledged() {

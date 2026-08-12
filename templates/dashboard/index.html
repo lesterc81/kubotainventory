@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — IT Asset System{% endblock %}
 {% block extra_head %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
 {% endblock %}
 {% block content %}
 <div class="page-header">
@@ -138,14 +138,26 @@
 {% endblock %}
 {% block extra_js %}
 <script>
-const palette = ['#C73E3E','#2B6C4B','#A6781A','#3A6B8C','#221E18','#8A7F72','#B8AD9E','#D4C9B8'];
+function cssVar(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+const accent   = cssVar('--accent', '#B03A2A');
+const success  = cssVar('--success', '#2F7D52');
+const warning  = cssVar('--warning', '#A9711B');
+const info     = cssVar('--info', '#3F6D93');
+const danger   = cssVar('--danger', '#C0392B');
+const ink      = cssVar('--ink', '#262422');
+const inkMuted = cssVar('--ink-muted', '#6E6A64');
+const inkSub   = cssVar('--ink-subtle', '#A6A19A');
+const border   = cssVar('--border', '#E6E4E0');
+const palette = [accent, success, warning, info, ink, inkMuted, inkSub, border];
 const byLoc = {{ by_location | safe }};
 const byType = {{ by_type | safe }};
 const accStatus = {{ accountability_status | safe }};
 const auditRes = {{ audit_results | safe }};
-renderBarChart('chartLocation', byLoc.map(d=>d.label), byLoc.map(d=>d.value), '#C73E3E');
+renderBarChart('chartLocation', byLoc.map(d=>d.label), byLoc.map(d=>d.value), accent);
 renderDoughnut('chartType', byType.map(d=>d.label), byType.map(d=>d.value), palette);
-renderDoughnut('chartAcc', accStatus.map(d=>d.label), accStatus.map(d=>d.value), ['#2B6C4B','#A6781A','#3A6B8C','#C73E3E','#B8AD9E']);
-renderDoughnut('chartAudit', auditRes.map(d=>d.label), auditRes.map(d=>d.value), ['#2B6C4B','#C73E3E','#A6781A']);
+renderDoughnut('chartAcc', accStatus.map(d=>d.label), accStatus.map(d=>d.value), [success, warning, info, danger, inkSub]);
+renderDoughnut('chartAudit', auditRes.map(d=>d.label), auditRes.map(d=>d.value), [success, danger, warning]);
 </script>
 {% endblock %}
