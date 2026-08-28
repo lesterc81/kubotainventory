@@ -284,6 +284,10 @@ def _lookup_display_name(oid):
 
 
 def audit_log(module, action, old_value=None, new_value=None, record_id=None):
+    record_name = None
+    record_oid = safe_object_id(record_id)
+    if record_oid:
+        record_name = _lookup_display_name(record_oid)
     mongo.db.audit_logs.insert_one({
         "timestamp": datetime.utcnow(),
         "username": current_user.username if current_user.is_authenticated else "system",
@@ -291,6 +295,7 @@ def audit_log(module, action, old_value=None, new_value=None, record_id=None):
         "module": module,
         "action": action,
         "record_id": str(record_id) if record_id else None,
+        "record_name": record_name,
         "old_value": _process_audit_value(old_value),
         "new_value": _process_audit_value(new_value),
     })
@@ -496,13 +501,143 @@ def _build_name_map(oids):
     return name_map
 
 
+FIELD_LABELS = {
+    "asset_tag": "Asset Tag", "endpoint_name": "Endpoint Name", "serial_number": "Serial Number",
+    "device_type": "Device Type", "model_name": "Model", "manufacturer": "Manufacturer",
+    "os_version": "OS Version", "cpu": "CPU", "ram": "RAM", "storage": "Storage",
+    "purchase_date": "Purchase Date", "warranty_expiry": "Warranty Expiry",
+    "purchase_cost": "Purchase Cost", "vendor": "Vendor", "location": "Location",
+    "status": "Status", "notes": "Notes", "assigned_to": "Assigned To",
+    "workstation_id": "Workstation", "asset_id": "Asset", "employee_id": "Employee",
+    "workstation_code": "Workstation Code", "workstation_name": "Workstation Name",
+    "floor_area": "Floor / Area", "department": "Department", "full_name": "Full Name",
+    "email": "Email", "contact_number": "Contact Number", "site": "Site",
+    "date_hired": "Date Hired", "position": "Position", "accountability_type": "Type",
+    "effective_date": "Effective Date", "asset_ids": "Assets", "audit_type": "Audit Type",
+    "result": "Result", "findings": "Findings", "audit_date": "Audit Date",
+    "username": "Username", "role": "Role", "is_active": "Active",
+    "email_sent_at": "Email Sent At", "received_at": "Received At", "approved_at": "Approved At",
+    "received_by": "Received By", "approved_by": "Approved By",
+    "file": "File", "imported": "Imported", "duplicates": "Duplicates Skipped",
+    "failed": "Failed Rows", "from": "From", "to": "To", "to_type": "Target Type", "count": "Count",
+}
+AUDIT_NOISE_FIELDS = {"_id", "updated_at", "created_at", "history", "remarks_timeline"}
+ACTION_SUMMARY = {
+    ("Assets", "Create"): "Registered a new asset",
+    ("Assets", "Update"): "Updated asset details",
+    ("Assets", "Archive"): "Archived asset",
+    ("Assets", "Transfer"): "Transferred asset",
+    ("Assets", "Batch Transfer"): "Batch-transferred assets",
+    ("Assets", "Export"): "Exported assets to file",
+    ("Assets", "Import"): "Imported assets from file",
+    ("Employees", "Create"): "Added a new employee",
+    ("Employees", "Update"): "Updated employee details",
+    ("Employees", "Archive"): "Archived employee",
+    ("Employees", "Export"): "Exported employees to file",
+    ("Workstations", "Create"): "Registered a new workstation",
+    ("Workstations", "Update"): "Updated workstation details",
+    ("Workstations", "Archive"): "Archived workstation",
+    ("Workstations", "AssignAsset"): "Linked asset to workstation",
+    ("Workstations", "UnlinkAsset"): "Unlinked asset from workstation",
+    ("Accountabilities", "Create"): "Created accountability record",
+    ("Accountabilities", "Close"): "Closed accountability record",
+    ("Accountabilities", "Receive"): "Employee confirmed receipt of assets",
+    ("Accountabilities", "Mark Received"): "Marked accountability as received",
+    ("Accountabilities", "Approve"): "Approved accountability record",
+    ("Accountabilities", "Email Sent"): "Sent receive-confirmation email",
+    ("Audits", "Create"): "Recorded a new audit",
+    ("Users", "Create"): "Created a new user account",
+    ("Users", "Update"): "Updated user account",
+    ("Auth", "Login"): "Signed in",
+    ("Auth", "Logout"): "Signed out",
+}
+_DATETIME_TEXT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}")
+
+
+def _format_audit_value(value):
+    """Render a stored audit value as short human-readable text (None if empty)."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    if isinstance(value, (list, tuple)):
+        return f"{len(value)} item(s)" if value else None
+    if isinstance(value, dict):
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if _DATETIME_TEXT_RE.match(text):
+        return text[:16].replace("T", " ")
+    return text
+
+
+def _audit_change_rows(log_dict):
+    """Build readable field-change rows (label / old / new) from stored values."""
+    old_v, new_v = log_dict.get("old_value"), log_dict.get("new_value")
+    rows = []
+
+    def _display(container, key):
+        raw = container.get(key)
+        pretty = container.get(f"{key}_name")
+        return pretty or _format_audit_value(raw)
+
+    if isinstance(old_v, dict) and isinstance(new_v, dict):
+        keys = list(dict.fromkeys(list(new_v.keys()) + list(old_v.keys())))
+        for key in keys:
+            if key in AUDIT_NOISE_FIELDS or key.endswith("_name"):
+                continue
+            old_disp, new_disp = _display(old_v, key), _display(new_v, key)
+            if old_disp == new_disp:
+                continue
+            rows.append({"label": FIELD_LABELS.get(key, key.replace("_", " ").title()),
+                         "old": old_disp, "new": new_disp})
+    elif isinstance(new_v, dict):
+        for key, raw in new_v.items():
+            if key in AUDIT_NOISE_FIELDS or key.endswith("_name"):
+                continue
+            disp = new_v.get(f"{key}_name") or _format_audit_value(raw)
+            if disp is None:
+                continue
+            rows.append({"label": FIELD_LABELS.get(key, key.replace("_", " ").title()),
+                         "old": None, "new": disp})
+    elif isinstance(old_v, dict):
+        for key, raw in old_v.items():
+            if key in AUDIT_NOISE_FIELDS or key.endswith("_name"):
+                continue
+            disp = old_v.get(f"{key}_name") or _format_audit_value(raw)
+            if disp is None:
+                continue
+            rows.append({"label": FIELD_LABELS.get(key, key.replace("_", " ").title()),
+                         "old": disp, "new": None})
+    return rows
+
+
+def _audit_detail_text(log_dict):
+    """One-line sentence for actions better described as prose than field diffs."""
+    module, action = log_dict.get("module"), log_dict.get("action")
+    new_v = log_dict.get("new_value") or {}
+    old_v = log_dict.get("old_value") or {}
+    if module == "Assets" and action == "Batch Transfer":
+        return (f"Moved {new_v.get('count', '?')} asset(s) from "
+                f"{old_v.get('from', '?')} to {new_v.get('to', '?')}")
+    if action == "Import":
+        return (f"Imported {new_v.get('imported', 0)} asset(s) from {new_v.get('file', 'file')} "
+                f"— {new_v.get('duplicates', 0)} duplicate(s), {new_v.get('failed', 0)} failed")
+    if action == "Remark":
+        remark = new_v.get("remark")
+        return f"\"{remark}\"" if remark else None
+    return None
+
+
 def enrich_audit_log(log_dict, name_map=None):
-    """Attach human-readable names to a serialized audit log entry for display."""
+    """Attach human-readable names, summary and change rows for display."""
     record_id = log_dict.get("record_id")
     if record_id:
         oid = safe_object_id(record_id)
         if oid:
-            name = (name_map or {}).get(str(oid)) or _lookup_display_name(oid)
+            name = (log_dict.get("record_name") or (name_map or {}).get(str(oid))
+                    or _lookup_display_name(oid))
             if name:
                 log_dict["record_name"] = name
     for value_key in ("old_value", "new_value"):
@@ -516,6 +651,10 @@ def enrich_audit_log(log_dict, name_map=None):
                         name = (name_map or {}).get(str(oid)) or _lookup_display_name(oid)
                         if name:
                             val[f"{ref_field}_name"] = name
+    log_dict["summary"] = ACTION_SUMMARY.get(
+        (log_dict.get("module"), log_dict.get("action")), log_dict.get("action") or "Action")
+    log_dict["detail_text"] = _audit_detail_text(log_dict)
+    log_dict["change_rows"] = _audit_change_rows(log_dict)
     return log_dict
 
 

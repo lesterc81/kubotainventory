@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Audit Trail — IT Asset System{% endblock %}
+{% block title %}Log Trail — IT Asset System{% endblock %}
 
 {% block content %}
 <div class="breadcrumb">
   <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
   <span class="material-icons-round">chevron_right</span>
-  <span>Audit Trail</span>
+  <span>Log Trail</span>
 </div>
 
 <div class="page-header">
   <div class="page-header-left">
-    <h1>Audit Trail</h1>
+    <h1>Log Trail</h1>
     <p>Complete history of all system actions</p>
   </div>
   <div class="page-header-actions">
@@ -76,101 +76,57 @@
               <td style="font-size:0.8rem;white-space:nowrap;">{{ log.timestamp[:19] if log.timestamp else '-' }}</td>
               <td><strong>{{ log.username }}</strong></td>
               <td><span class="chip chip-blue">{{ log.module }}</span></td>
-              <td>{{ log.action }}</td>
+              <td>{{ log.summary }}</td>
               <td>
                 {% if log.record_name %}
-                  <div><strong>{{ log.record_name }}</strong></div>
-                  <small style="font-size:0.65rem;color:var(--ink-muted)">ID: {{ log.record_id }}</small>
+                  <div title="ID: {{ log.record_id }}"><strong>{{ log.record_name }}</strong></div>
+                {% elif log.record_id %}
+                  <span class="text-muted" style="font-size:0.7rem;" title="{{ log.record_id }}">#{{ log.record_id[:8] }}…</span>
                 {% else %}
                   <span class="text-muted">-</span>
                 {% endif %}
               </td>
               <td>
-                {% if log.old_value or log.new_value %}
+                {% if log.change_rows or log.detail_text %}
                 <div>
                   <button class="btn btn-sm btn-outline" onclick="toggleDetails('details-{{ loop.index }}')">
-                    <span class="material-icons-round" style="font-size:16px;">visibility</span> View Changes
+                    <span class="material-icons-round" style="font-size:16px;">visibility</span> View Details
                   </button>
                   <div id="details-{{ loop.index }}" style="display:none;margin-top:8px;">
                     <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+                      {% if log.detail_text %}
+                      <div style="background:var(--paper);padding:12px;font-size:0.85rem;">{{ log.detail_text }}</div>
+                      {% endif %}
+                      {% if log.change_rows %}
                       <div style="background:var(--paper);padding:12px;">
-                        {% if log.old_value and log.new_value %}
-                          {% if log.old_value is mapping and log.new_value is mapping %}
-                            <div style="overflow-x:auto;">
-                              <table style="margin:0;font-size:0.85rem;">
-                                <thead>
-                                  <tr style="background:var(--paper);">
-                                    <th style="width:20%;padding:8px;">Field</th>
-                                    <th style="width:40%;padding:8px;">Old Value</th>
-                                    <th style="width:40%;padding:8px;">New Value</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {% set changed_keys = [] %}
-                                  {% for key in log.new_value.keys() %}
-                                    {% if key in log.old_value and log.old_value[key] != log.new_value[key] and not key.endswith('_name') %}
-                                      {% set _ = changed_keys.append(key) %}
-                                    {% endif %}
-                                  {% endfor %}
-                                  {% for key in changed_keys %}
-                                  <tr>
-                                    <td style="padding:6px 8px;"><strong>{{ key|replace('_', ' ')|title }}</strong></td>
-                                    <td style="padding:6px 8px;">
-                                      {% if key in log.old_value %}
-                                        {% if log.old_value[key] and not log.old_value[key]|string == 'null' %}
-                                          {% set old_val = log.old_value[key] %}
-                                          {% set name_key = key ~ '_name' %}
-                                          {% if name_key in log.old_value and log.old_value[name_key] %}
-                                            <span style="color:var(--error);font-weight:700;">{{ log.old_value[name_key] }}</span>
-                                          {% else %}
-                                            <span style="color:var(--error);">{{ old_val }}</span>
-                                          {% endif %}
-                                        {% else %}
-                                          <span class="text-muted" style="font-style:italic;">None</span>
-                                        {% endif %}
-                                      {% else %}
-                                        <span class="text-muted" style="font-style:italic;">None</span>
-                                      {% endif %}
-                                    </td>
-                                    <td style="padding:6px 8px;">
-                                      {% set new_val = log.new_value[key] %}
-                                      {% set name_key = key ~ '_name' %}
-                                      {% if name_key in log.new_value and log.new_value[name_key] %}
-                                        <span style="color:var(--success);font-weight:700;">{{ log.new_value[name_key] }}</span>
-                                      {% else %}
-                                        {% if new_val %}
-                                          <span style="color:var(--success);">{{ new_val }}</span>
-                                        {% else %}
-                                          <span class="text-muted" style="font-style:italic;">None</span>
-                                        {% endif %}
-                                      {% endif %}
-                                    </td>
-                                  </tr>
-                                  {% endfor %}
-                                </tbody>
-                              </table>
-                            </div>
-                          {% else %}
-                            <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                              <div style="flex:1;min-width:200px;">
-                                <strong style="color:var(--error);">Old:</strong>
-                                <pre style="font-size:0.8rem;margin-top:4px;background:var(--card);padding:8px;border-radius:4px;white-space:pre-wrap;word-wrap:break-word;max-height:200px;overflow-y:auto;">{{ log.old_value|tojson(indent=2)|safe }}</pre>
-                              </div>
-                              <div style="flex:1;min-width:200px;">
-                                <strong style="color:var(--success);">New:</strong>
-                                <pre style="font-size:0.8rem;margin-top:4px;background:var(--card);padding:8px;border-radius:4px;white-space:pre-wrap;word-wrap:break-word;max-height:200px;overflow-y:auto;">{{ log.new_value|tojson(indent=2)|safe }}</pre>
-                              </div>
-                            </div>
-                          {% endif %}
-                        {% else %}
-                          {% if log.old_value %}
-                            <div><strong>Old:</strong> <code>{{ log.old_value|tojson|safe }}</code></div>
-                          {% endif %}
-                          {% if log.new_value %}
-                            <div><strong>New:</strong> <code>{{ log.new_value|tojson|safe }}</code></div>
-                          {% endif %}
-                        {% endif %}
+                        <div style="overflow-x:auto;">
+                          <table style="margin:0;font-size:0.85rem;">
+                            <thead>
+                              <tr style="background:var(--paper);">
+                                <th style="width:25%;padding:8px;">Field</th>
+                                <th style="width:37.5%;padding:8px;">Before</th>
+                                <th style="width:37.5%;padding:8px;">After</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for row in log.change_rows %}
+                              <tr>
+                                <td style="padding:6px 8px;"><strong>{{ row.label }}</strong></td>
+                                <td style="padding:6px 8px;">
+                                  {% if row.old %}<span style="color:var(--error);">{{ row.old }}</span>
+                                  {% else %}<span class="text-muted" style="font-style:italic;">—</span>{% endif %}
+                                </td>
+                                <td style="padding:6px 8px;">
+                                  {% if row.new %}<span style="color:var(--success);">{{ row.new }}
+                                  {% else %}<span class="text-muted" style="font-style:italic;">—</span>{% endif %}
+                                </td>
+                              </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
+                      {% endif %}
                     </div>
                   </div>
                 </div>
