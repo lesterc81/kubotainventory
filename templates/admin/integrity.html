@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}System Integrity — IT Asset System{% endblock %}
+{% block content %}
+<style>
+  .stat-card-sub { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .trail-list { display: flex; flex-direction: column; gap: 8px; padding: 6px 26px 22px; max-height: 340px; overflow: auto; }
+  .trail-entry { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px;
+                 border-radius: var(--radius); background: var(--surface-soft); }
+  .trail-entry code { white-space: normal; word-break: break-word; line-height: 1.45; }
+</style>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>System Integrity</h1>
+    <p>Read-only cross-document consistency and tamper-evident audit trail verification</p>
+  </div>
+  <div class="page-header-actions">
+    <span class="text-muted text-small" style="margin-right:8px">Last checked {{ checked_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
+    <a href="{{ url_for('admin.integrity') }}" class="btn btn-tonal btn-sm">
+      <span class="material-icons-round">refresh</span> Re-check
+    </a>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card {{ 'success' if consistency.ok else 'error' }}">
+    <div class="stat-card-icon"><span class="material-icons-round">{{ 'task_alt' if consistency.ok else 'error' }}</span></div>
+    <div class="stat-card-label">Data Consistency</div>
+    <div class="stat-card-value">{{ 'OK' if consistency.ok else (consistency.issues|length ~ ' issues') }}</div>
+    <div class="stat-card-sub">
+      <span class="chip chip-grey">{{ consistency.assets if consistency.assets is not none else '?' }} assets</span>
+      <span class="chip chip-grey">{{ consistency.employees if consistency.employees is not none else '?' }} employees</span>
+      <span class="chip chip-grey">{{ consistency.accountabilities if consistency.accountabilities is not none else '?' }} accountabilities</span>
+    </div>
+  </div>
+
+  <div class="stat-card {{ 'success' if chain.ok else 'error' }}">
+    <div class="stat-card-icon"><span class="material-icons-round">{{ 'verified_user' if chain.ok else 'gpp_bad' }}</span></div>
+    <div class="stat-card-label">Audit Trail Chain</div>
+    <div class="stat-card-value">{{ 'Verified' if chain.ok else (chain.issues|length ~ ' problem' ~ ('s' if chain.issues|length != 1 else '')) }}</div>
+    <div class="stat-card-sub">
+      <span class="chip chip-grey">{{ chain.count if chain.count is not none else '?' }} signed entries</span>
+      <span class="chip chip-green" style="border-color:transparent">HMAC-SHA256</span>
+    </div>
+  </div>
+</div>
+
+{% if not consistency.ok %}
+<div class="card">
+  <div class="card-header"><div class="card-title"><span class="material-icons-round">rule</span> Consistency issues</div></div>
+  <div class="trail-list">
+    {% for issue in consistency.issues %}
+    <div class="trail-entry">
+      <span class="chip chip-red">issue</span>
+      <code class="text-mono text-small">{{ issue }}</code>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if not chain.ok %}
+<div class="card">
+  <div class="card-header"><div class="card-title"><span class="material-icons-round">gpp_bad</span> Audit chain problems</div></div>
+  <div class="trail-list">
+    {% for issue in chain.issues %}
+    <div class="trail-entry">
+      <span class="chip {% if issue.kind == 'modified' or issue.kind == 'fork' %}chip-red{% elif issue.kind == 'unsigned' %}chip-blue{% else %}chip-grey{% endif %}">{{ issue.kind }}</span>
+      <code class="text-mono text-small">log[{{ issue.index }}] {{ issue._id }} — {{ issue.detail }}</code>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if consistency.ok and chain.ok %}
+<div class="card">
+  <div class="empty-state">
+    <span class="material-icons-round">verified_user</span>
+    <h3>Everything checks out</h3>
+    <p>Data is consistent and the audit trail is unmodified. Re-check anytime, or run the same
+       scans from a script with <code class="text-mono">scripts/consistency_check.py</code>
+       and <code class="text-mono">scripts/audit_chain.py verify</code>.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

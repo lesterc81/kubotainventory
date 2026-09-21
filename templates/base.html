@@ -6,14 +6,21 @@
 
     <title>{% block title %}IT Asset System{% endblock %}</title>
 
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/glass.css') }}">
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body data-fx="{{ 'full' if not current_user.is_authenticated else 'ambient' }}">
+
+<canvas id="fx-canvas" aria-hidden="true"></canvas>
 
 {% if current_user.is_authenticated %}
 
@@ -21,7 +28,6 @@
   'dashboard.': 'overview',
   'search.': 'overview',
   'assets.': 'inventory',
-  'workstations.': 'inventory',
   'employees.': 'people',
   'accountabilities.': 'records',
   'audits.': 'records',
@@ -56,48 +62,45 @@
         <div class="brand-sub">Management</div>
       </div>
     </a>
+    <button type="button" class="sidebar-collapse" id="sidebarCollapse" aria-label="Collapse sidebar" title="Collapse sidebar">
+      <span class="material-icons-round">chevron_left</span>
+    </button>
   </div>
 
   <nav class="sidebar-nav">
-    <div class="sidebar-section-label">Overview</div>
     <a href="{{ url_for('dashboard.index') }}"
-       class="sidebar-link{% if request.endpoint == 'dashboard.index' %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint == 'dashboard.index' %} active{% endif %}" title="Dashboard">
       <span class="material-icons-round">dashboard</span>
       Dashboard
     </a>
     <a href="{{ url_for('dashboard.search') }}"
-       class="sidebar-link{% if request.endpoint == 'dashboard.search' %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint == 'dashboard.search' %} active{% endif %}" title="Search">
       <span class="material-icons-round">search</span>
       Search
     </a>
 
     <div class="sidebar-section-label">Inventory</div>
     <a href="{{ url_for('assets.list_view') }}"
-       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('assets.') %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('assets.') %} active{% endif %}" title="Assets">
       <span class="material-icons-round">inventory_2</span>
       Assets
-    </a>
-    <a href="{{ url_for('workstations.list_view') }}"
-       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('workstations.') %} active{% endif %}">
-      <span class="material-icons-round">workspaces</span>
-      Workstations
     </a>
 
     <div class="sidebar-section-label">People</div>
     <a href="{{ url_for('employees.list_view') }}"
-       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('employees.') %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('employees.') %} active{% endif %}" title="Employees">
       <span class="material-icons-round">badge</span>
       Employees
     </a>
 
     <div class="sidebar-section-label">Records</div>
     <a href="{{ url_for('accountabilities.list_view') }}"
-       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('accountabilities.') %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('accountabilities.') %} active{% endif %}" title="Accountabilities">
       <span class="material-icons-round">description</span>
       Accountabilities
     </a>
     <a href="{{ url_for('audits.list_view') }}"
-       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('audits.') %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('audits.') %} active{% endif %}" title="Audits">
       <span class="material-icons-round">fact_check</span>
       Audits
     </a>
@@ -105,19 +108,29 @@
     {% if current_user.is_admin() %}
     <div class="sidebar-section-label">Administration</div>
     <a href="{{ url_for('users.list_view') }}"
-       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('users.') %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('users.') %} active{% endif %}" title="Users">
       <span class="material-icons-round">manage_accounts</span>
       Users
     </a>
     <a href="{{ url_for('audits.trail') }}"
-       class="sidebar-link{% if request.endpoint == 'audits.trail' %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint == 'audits.trail' %} active{% endif %}" title="Log Trail">
       <span class="material-icons-round">history</span>
       Log Trail
     </a>
     <a href="{{ url_for('ai.dashboard') }}"
-       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('ai.') %} active{% endif %}">
+       class="sidebar-link{% if request.endpoint and request.endpoint.startswith('ai.') %} active{% endif %}" title="AI Insights">
       <span class="material-icons-round">psychology</span>
       AI Insights
+    </a>
+    <a href="{{ url_for('admin.integrity') }}"
+       class="sidebar-link{% if request.endpoint == 'admin.integrity' %} active{% endif %}" title="System Integrity">
+      <span class="material-icons-round">verified_user</span>
+      System Integrity
+    </a>
+    <a href="{{ url_for('admin.settings') }}"
+       class="sidebar-link{% if request.endpoint == 'admin.settings' %} active{% endif %}" title="System Settings">
+      <span class="material-icons-round">settings</span>
+      System Settings
     </a>
     {% endif %}
   </nav>
@@ -158,6 +171,8 @@
 
 </main>
 
+<script src="{{ url_for('static', filename='vendor/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/fx.js') }}"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 <script src="{{ url_for('static', filename='js/animations.js') }}"></script>
 {% block extra_js %}

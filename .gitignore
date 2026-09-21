@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.mongo_app_pw.txt
 
 # Python
 __pycache__/

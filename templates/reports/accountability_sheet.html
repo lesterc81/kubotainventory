@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Accountability Sheet — {{ emp.full_name }}</title>
+<link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #F6F5F3; color: #17120E; padding: 24px; }
+  .no-print { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; }
+  .no-print button { padding: 10px 22px; background: #14532D; color: white; border: none; border-radius: 50px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; }
+  .no-print a { color: #14532D; text-decoration: none; font-size: 13px; font-weight: 700; }
+  .sheet {
+    background: #FFFFFF; border: 1px solid #E6E4E0; border-radius: 16px; overflow: hidden;
+    max-width: 800px; margin: 0 auto; box-shadow: 0 18px 44px rgba(30,28,26,0.12);
+  }
+  .sheet-top {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
+    background: #14532D; color: white; padding: 24px 28px;
+  }
+  .sheet-top h1 { font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
+  .sheet-top .sub { font-size: 12px; color: rgba(255,255,255,0.75); }
+  .sheet-qr { text-align: center; background: white; border-radius: 10px; padding: 8px 10px; }
+  .sheet-qr img { width: 110px; height: 110px; display: block; }
+  .sheet-qr .hint { font-size: 9px; color: #6E6A64; margin-top: 4px; max-width: 120px; }
+  .sheet-body { padding: 24px 28px; }
+  .identity { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; border-bottom: 1px solid #EDEAE6; padding-bottom: 16px; margin-bottom: 20px; }
+  .identity .label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #6E6A64; }
+  .identity .value { font-weight: 700; font-size: 14px; margin-top: 2px; }
+  .sheet-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .sheet-title h2 { font-size: 14px; font-weight: 800; color: #14532D; text-transform: uppercase; letter-spacing: .04em; }
+  .sheet-title .count { font-size: 12px; color: #6E6A64; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #6E6A64; padding: 6px 8px; border-bottom: 1.5px solid #D8D3CC; }
+  td { padding: 7px 8px; border-bottom: 1px solid #EDEAE6; vertical-align: top; }
+  .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .sheet-footer { border-top: 1px solid #EDEAE6; margin-top: 20px; padding-top: 10px; font-size: 10.5px; color: #8A837B; display: flex; justify-content: space-between; gap: 16px; }
+  .status-chip { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .05em; padding: 3px 10px; border-radius: 20px; color: white; margin-top: 6px; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .no-print { display: none !important; }
+    .sheet { box-shadow: none; border-radius: 0; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="no-print">
+    <button onclick="window.print()">Print Sheet</button>
+    <a href="javascript:history.back()">Back</a>
+  </div>
+
+  <div class="sheet">
+    <div class="sheet-top">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,0.7)">Asset Accountability Sheet</div>
+        <h1>{{ emp.full_name }}</h1>
+        <div class="sub">{{ emp.employee_id }} · {{ emp.position }}</div>
+        <span class="status-chip" style="background:{% if emp.status == 'Active' %}#22C55E{% elif emp.status == 'Resigned' %}#B03A2A{% else %}#C99A3E{% endif %}">{{ emp.status }}</span>
+      </div>
+      <div class="sheet-qr">
+        <img src="data:image/png;base64,{{ qr }}" alt="Bundle QR">
+        <div class="hint">Scan to view this employee&rsquo;s live accountability.</div>
+      </div>
+    </div>
+
+    <div class="sheet-body">
+      <div class="identity">
+        <div><div class="label">Department / Division</div><div class="value">{{ emp.department }}{% if emp.division %}{% if emp.department %} · {% endif %}{{ emp.division }}{% endif %}</div></div>
+        <div><div class="label">Site</div><div class="value">{{ emp.site }}</div></div>
+        <div><div class="label">Section / Group</div><div class="value">{% if emp.section and emp.group %}{{ emp.section }} · {{ emp.group }}{% elif emp.section %}{{ emp.section }}{% elif emp.group %}{{ emp.group }}{% else %}&mdash;{% endif %}</div></div>
+        {% if primary_emp %}
+        <div><div class="label">Accountable Officer</div><div class="value">{{ primary_emp.full_name }}</div></div>
+        {% endif %}
+      </div>
+
+      <div class="sheet-title">
+        <h2>Assigned Assets</h2>
+        <span class="count">{{ assets|length }} item(s)</span>
+      </div>
+      {% if assets %}
+      <table>
+        <thead>
+          <tr><th>#</th><th>Device Type</th><th>Asset Tag</th><th>Site</th><th>Model</th><th>Serial Number</th><th>Location</th></tr>
+        </thead>
+        <tbody>
+        {% for a in assets %}
+          <tr>
+            <td style="color:#8A837B">{{ loop.index }}</td>
+            <td>{{ a.device_type or '—' }}</td>
+            <td><strong>{{ a.asset_tag or '—' }}</strong></td>
+            <td>{{ a.asset_tag|site_from_tag or '—' }}</td>
+            <td>{{ a.model_name or '—' }}</td>
+            <td class="mono">{{ a.serial_number or '—' }}</td>
+            <td>{{ a.location or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;color:#8A837B;padding:28px 0;border:1px dashed #D8D3CC;border-radius:10px">No assets currently assigned.</div>
+      {% endif %}
+
+      <div class="sheet-footer">
+        <span>Generated {{ generated_at[:10] }} by {{ generated_by }}</span>
+        <span>The QR always reflects live data — re-scan to see current assignment status.</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

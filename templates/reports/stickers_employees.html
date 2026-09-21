@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Employee QR Stickers — IT Asset System</title>
+<link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicon.png') }}">
+<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #fff; color: #17120E; }
+  .no-print { padding: 16px; background: #14532D; color: white; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .no-print button { padding: 8px 20px; background: white; color: #14532D; border: none; border-radius: 50px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; }
+  .no-print button:hover { opacity: 0.9; }
+  .no-print a { color: rgba(255,255,255,0.8); text-decoration: none; }
+  .add-box { display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.15); padding: 6px 10px; border-radius: 50px; margin-left: auto; }
+  .add-box input { border: none; padding: 8px 14px; border-radius: 50px; font-size: 13px; min-width: 260px; font-family: 'DM Sans', sans-serif; }
+  .add-box button { padding: 8px 16px; }
+  #searchHits { position: absolute; top: 4px; right: 110px; background: white; color: #17120E; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.18); overflow: hidden; z-index: 50; min-width: 280px; }
+  #searchHits div { padding: 9px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #eee; }
+  #searchHits div:hover { background: #F2F7F4; }
+  .stickers-grid { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; }
+  .sticker-card {
+    border: 2px solid #17120E;
+    border-radius: 8px;
+    padding: 10px;
+    width: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    position: relative;
+  }
+  .sticker-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 4px;
+    width: 100px; height: 3px;
+    background: #22C55E;
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 100%, 0 100%);
+  }
+  .sticker-card img { width: 110px; height: 110px; display: block; margin-top: 4px; }
+  .sticker-name { font-weight: 800; font-size: 14px; letter-spacing: 0.02em; color: #14532D; line-height: 1.2; }
+  .sticker-id { font-size: 10px; color: #6B6258; font-family: 'JetBrains Mono', monospace; }
+  .sticker-type { font-size: 11px; color: #17120E; }
+  .sticker-model { font-size: 11px; color: #17120E; }
+  .sticker-loc { font-size: 10px; color: #6B6258; border-top: 1px solid #DED5CC; padding-top: 4px; width: 100%; }
+  .sticker-logo { font-size: 9px; color: #9C9388; margin-top: 2px; }
+  @media print {
+    .no-print { display: none !important; }
+    body { margin: 0; }
+    .stickers-grid { padding: 8px; gap: 8px; }
+    .sticker-card { border: 1.5px solid #000; }
+    .sticker-card::before { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="no-print" style="position:relative">
+  <span style="font-weight:700">Employee QR Stickers (<span id="stickerCount">{{ stickers|length }}</span>)</span>
+  <button onclick="window.print()">Print Stickers</button>
+  <a href="javascript:history.back()" style="margin-left:12px">Back</a>
+  <div class="add-box">
+    <input type="text" id="empSearch" placeholder="Search name or employee ID…" autocomplete="off">
+    <button id="addBtn" type="button">Add QR</button>
+    <div id="searchHits" style="display:none"></div>
+  </div>
+</div>
+<div class="stickers-grid" id="stickerGrid">
+  {% for s in stickers %}
+    {% with emp=s.emp, qr=s.qr %}
+      {% include "reports/_employee_sticker_card.html" %}
+    {% endwith %}
+  {% endfor %}
+</div>
+<script>
+(function () {
+  var grid = document.getElementById('stickerGrid');
+  var countEl = document.getElementById('stickerCount');
+  var hitsEl = document.getElementById('searchHits');
+  var searchEl = document.getElementById('empSearch');
+  var hits = [];
+
+  function refreshCount() {
+    countEl.textContent = grid.children.length;
+  }
+
+  function addSticker(id) {
+    fetch('/reports/stickers/employee/' + id + '/card')
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var t = document.createElement('template');
+        t.innerHTML = html.trim();
+        grid.appendChild(t.content.firstChild);
+        refreshCount();
+      });
+  }
+
+  function hideHits() { hitsEl.style.display = 'none'; }
+
+  var debounce;
+  searchEl.addEventListener('input', function () {
+    clearTimeout(debounce);
+    hits = [];
+    var q = searchEl.value.trim();
+    if (!q) { hideHits(); return; }
+    debounce = setTimeout(function () {
+      fetch('/api/employees/search?q=' + encodeURIComponent(q))
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          hits = j.data || [];
+          hitsEl.innerHTML = '';
+          hits.forEach(function (h) {
+            var d = document.createElement('div');
+            d.textContent = h.text;
+            d.addEventListener('click', function () {
+              searchEl.value = h.text;
+              addSticker(h.id);
+              hideHits();
+            });
+            hitsEl.appendChild(d);
+          });
+          hitsEl.style.display = hits.length ? 'block' : 'none';
+        });
+    }, 250);
+  });
+
+  document.getElementById('addBtn').addEventListener('click', function () {
+    if (hits.length) {
+      addSticker(hits[0].id);
+      searchEl.value = '';
+      hideHits();
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!hitsEl.contains(e.target) && e.target !== searchEl) hideHits();
+  });
+  searchEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && hits.length) {
+      e.preventDefault();
+      addSticker(hits[0].id);
+      searchEl.value = '';
+      hideHits();
+    }
+  });
+})();
+</script>
+</body>
+</html>

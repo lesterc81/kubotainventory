@@ -30,6 +30,42 @@ async function safeDownload(url) {
   window.location.href = url;
 }
 
+// Async export: POST starts a background generation job, then poll the status
+// endpoint and navigate to the download URL once it is ready. Works in both the
+// desktop exe (Saved page + OS open) and a normal browser (attachment download).
+async function asyncDownload(url) {
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: csrfHeaders({ 'Content-Type': 'application/json' })
+    });
+    const body = await r.json().catch(() => null);
+    if (!r.ok || !body || !body.job_id) {
+      alert('Export could not be started (HTTP ' + r.status + ').');
+      return;
+    }
+    const jobId = body.job_id;
+    for (let i = 0; i < 120; i++) {
+      await new Promise(res => setTimeout(res, 500));
+      const s = await fetch(url + '/status/' + jobId, { credentials: 'same-origin' });
+      const st = await s.json().catch(() => null);
+      if (!st || !st.status) continue;
+      if (st.status === 'done') {
+        window.location.href = url + '/download/' + jobId;
+        return;
+      }
+      if (st.status === 'error') {
+        alert('Export failed: ' + (st.error || 'unknown error'));
+        return;
+      }
+    }
+    alert('Export timed out after 60 seconds.');
+  } catch (err) {
+    alert('Export failed: ' + err.message);
+  }
+}
+
 // ─── Double-submit guard: disable submit buttons while a form is submitting
 document.addEventListener('submit', function (e) {
   const form = e.target;
@@ -44,13 +80,14 @@ document.addEventListener('submit', function (e) {
   buttons.forEach(function (b) { b.disabled = true; });
 });
 
-// ─── Dark Mode ──────────────────────────────────────────────────────────
+// ─── Theme change signal (charts + fx restyle from CSS tokens) ──────────
 const html = document.documentElement;
 const darkIcon = document.getElementById('darkIcon');
 function applyTheme(dark) {
   html.dataset.theme = dark ? 'dark' : 'light';
   if (darkIcon) darkIcon.textContent = dark ? 'light_mode' : 'dark_mode';
   localStorage.setItem('theme', dark ? 'dark' : 'light');
+  document.dispatchEvent(new CustomEvent('themechange'));
 }
 (function () {
   const saved = localStorage.getItem('theme');
@@ -86,6 +123,24 @@ if (hamburger) {
 if (sidebarOverlay) {
   sidebarOverlay.addEventListener('click', closeSidebar);
 }
+
+// ─── Sidebar collapse (desktop icon rail) ────────────────────────────────
+const collapseBtn = document.getElementById('sidebarCollapse');
+const collapseIcon = collapseBtn?.querySelector('.material-icons-round');
+const RAIL_KEY = 'sidebar-rail';
+function setCollapsed(collapsed) {
+  document.body.classList.toggle('sidebar-collapsed', collapsed);
+  if (collapseIcon) collapseIcon.textContent = collapsed ? 'chevron_right' : 'chevron_left';
+  collapseBtn?.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+  collapseBtn?.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+  if (window.innerWidth > 768) localStorage.setItem(RAIL_KEY, collapsed ? '1' : '0');
+}
+if (collapseBtn) {
+  collapseBtn.addEventListener('click', () => {
+    setCollapsed(!document.body.classList.contains('sidebar-collapsed'));
+  });
+}
+if (window.innerWidth > 768 && localStorage.getItem(RAIL_KEY) === '1') setCollapsed(true);
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab-item[data-tab]').forEach(btn => {
@@ -169,37 +224,96 @@ if (empInput && empIdField) {
 }
 
 // ─── Chart helpers (used in dashboard) ───────────────────────────────────
-window.renderBarChart = function(canvasId, labels, values, color = '#C73E3E') {
+// Palette is read from the CSS tokens every render, so charts restyle live
+// when the theme toggles without page reload.
+function cssVar(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+function chartPalette() {
+  return {
+    accent: cssVar('--chart-1', '#22d3c5'),
+    ticks: cssVar('--ink-muted', '#96a3bd'),
+    grid: cssVar('--chart-grid', 'rgba(150,163,189,0.14)'),
+    series: [1, 2, 3, 4, 5].map(i => cssVar('--chart-' + i, '#22d3c5'))
+      .concat([1, 2, 3].map(i => cssVar('--chart-n' + i, '#56637c'))),
+    font: cssVar('--font-body', 'DM Sans, sans-serif')
+  };
+}
+
+const chartDefs = {};
+function drawChart(canvasId, def) {
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
   if (ctx._chartInstance) ctx._chartInstance.destroy();
-  ctx._chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: color + 'CC', borderColor: color, borderWidth: 1.5, borderRadius: 6 }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+  const p = chartPalette();
+  const baseOpts = {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: p.grid }, ticks: { color: p.ticks, font: { family: p.font } } },
+      y: { beginAtZero: true, grid: { color: p.grid }, ticks: { color: p.ticks, font: { family: p.font } } }
     }
-  });
+  };
+  const opts = Object.assign({}, baseOpts);
+  switch (def.type) {
+    case 'bar':
+      opts.plugins.legend.display = def.legend !== false;
+      ctx._chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: def.labels,
+          datasets: [{
+            data: def.values,
+            backgroundColor: def.color ? hexToRgba(def.color, 0.85) : def.values.map((_, i) => hexToRgba(p.series[i % p.series.length], 0.85)),
+            borderColor: def.color || p.accent,
+            borderWidth: 1.5,
+            borderRadius: 6
+          }]
+        },
+        options: opts
+      });
+      break;
+    case 'doughnut':
+      ctx._chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: def.labels,
+          datasets: [{
+            data: def.values,
+            backgroundColor: def.color || def.labels.map((_, i) => p.series[i % p.series.length]),
+            borderColor: 'transparent',
+            borderWidth: 2,
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: p.ticks, font: { family: p.font, size: 12 }, usePointStyle: true, pointStyle: 'circle' } },
+            tooltip: { backgroundColor: cssVar('--glass-bg-pop', '#161e34') }
+          },
+          cutout: '65%'
+        }
+      });
+      break;
+  }
+}
+function hexToRgba(hex, alpha) {
+  const m = hex.replace('#', '');
+  if (m.length === 3) return hexToRgba(m.split('').map(c => c + c).join(''), alpha);
+  const n = parseInt(m, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+window.renderBarChart = function (canvasId, labels, values, color) {
+  chartDefs[canvasId] = { type: 'bar', labels, values, color };
+  drawChart(canvasId, chartDefs[canvasId]);
 };
-window.renderDoughnut = function(canvasId, labels, values, colors) {
-  const ctx = document.getElementById(canvasId);
-  if (!ctx) return;
-  if (ctx._chartInstance) ctx._chartInstance.destroy();
-  ctx._chartInstance = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, hoverOffset: 6 }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } },
-      cutout: '65%'
-    }
-  });
+window.renderDoughnut = function (canvasId, labels, values, colors) {
+  chartDefs[canvasId] = { type: 'doughnut', labels, values, color: colors };
+  drawChart(canvasId, chartDefs[canvasId]);
 };
+
+document.addEventListener('themechange', () => {
+  Object.keys(chartDefs).forEach(id => drawChart(id, chartDefs[id]));
+});

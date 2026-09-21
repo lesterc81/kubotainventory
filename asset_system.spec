@@ -14,6 +14,7 @@ a = Analysis(
     ],
     hiddenimports=[
         'app',
+        'integrity',
         'ai.blueprint',
         'ai.detector',
         'ai.reporter',

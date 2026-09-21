@@ -64,12 +64,30 @@
           {% for e in form.site.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
         </div>
         <div class="form-group">
+          <label>{{ form.division.label }}</label>
+          {{ form.division(class="form-control", placeholder="IT Infrastructure") }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.section.label }}</label>
+          {{ form.section(class="form-control", placeholder="Network Operations") }}
+        </div>
+        <div class="form-group">
+          <label>{{ form.group.label }}</label>
+          {{ form.group(class="form-control", placeholder="Service Desk B") }}
+        </div>
+        <div class="form-group">
           <label>{{ form.date_hired.label }}</label>
           {{ form.date_hired(class="form-control") }}
         </div>
         <div class="form-group">
           <label>{{ form.status.label }}</label>
           {{ form.status(class="form-control") }}
+        </div>
+        <div class="form-group full">
+          <label>{{ form.responsible_employee_id.label }}</label>
+          {{ form.responsible_employee_id(class="form-control") }}
+          {% for e in form.responsible_employee_id.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+          <p class="text-muted text-small" style="margin-top:4px">Direct hires leave blank. Set this for agency/secondary staff so their assets fall under the accountable officer&rsquo;s record.</p>
         </div>
         <div class="form-group full">
           <label>{{ form.notes.label }}</label>

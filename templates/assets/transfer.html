@@ -45,17 +45,7 @@
               {% if current_employee %}
                 {{ current_employee.full_name }} ({{ current_employee.employee_id }})
               {% else %}
-                <span class="text-muted">Not Assigned</span>
-              {% endif %}
-            </span>
-          </div>
-          <div class="status-item">
-            <label>Workstation</label>
-            <span>
-              {% if current_workstation %}
-                {{ current_workstation.workstation_code }} - {{ current_workstation.location }}
-              {% else %}
-                <span class="text-muted">Not in Workstation</span>
+                <span class="text-muted">Stockroom / Not Assigned</span>
               {% endif %}
             </span>
           </div>
@@ -98,7 +88,6 @@
           <select name="target_type" class="form-control" id="target_type" required>
             <option value="">-- Select Target Type --</option>
             <option value="employee">Employee</option>
-            <option value="workstation">Workstation</option>
             <option value="stockroom">Stockroom (Unassign)</option>
           </select>
         </div>
@@ -144,10 +133,6 @@ document.getElementById('target_type').addEventListener('change', function() {
     if (targetType === 'employee') {
       {% for emp in available_employees %}
         targetId.innerHTML += `<option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.employee_id }}) - {{ emp.department }}</option>`;
-      {% endfor %}
-    } else if (targetType === 'workstation') {
-      {% for ws in available_workstations %}
-        targetId.innerHTML += `<option value="{{ ws.id }}">{{ ws.workstation_code }} - {{ ws.location }} ({{ ws.department }})</option>`;
       {% endfor %}
     } else if (targetType === 'stockroom') {
       targetId.innerHTML = '<option value="stockroom">Stockroom</option>';

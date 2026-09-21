@@ -1,0 +1,11 @@
+<div class="sticker-card">
+  <img src="data:image/png;base64,{{ qr }}" alt="QR">
+  <div class="sticker-name">{{ emp.full_name }}</div>
+  <div class="sticker-id">ID: {{ emp.employee_id }}</div>
+  <div class="sticker-type">{{ emp.position }}</div>
+  <div class="sticker-model">{{ emp.department }}</div>
+  {% if emp.site %}
+  <div class="sticker-loc">{{ emp.site }}</div>
+  {% endif %}
+  <div class="sticker-logo">IT Asset System</div>
+</div>

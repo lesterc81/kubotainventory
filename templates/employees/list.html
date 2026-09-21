@@ -11,8 +11,14 @@
     <a href="{{ url_for('employees.new') }}" class="btn btn-primary btn-sm">
       <span class="material-icons-round">person_add</span> New Employee
     </a>
+    <button type="button" class="btn btn-tonal btn-sm" onclick="openImportDialog()">
+      <span class="material-icons-round">upload_file</span> Import
+    </button>
     {% endif %}
-    <a href="#" onclick="safeDownload('{{ url_for('io.export_employees') }}'); return false;" class="btn btn-outline btn-sm">
+    <a href="{{ url_for('io.employee_stickers') }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">qr_code_2</span> QR Stickers
+    </a>
+    <a href="#" onclick="asyncDownload('{{ url_for('io.export_employees') }}'); return false;" class="btn btn-outline btn-sm">
       <span class="material-icons-round">download</span> Export
     </a>
   </div>
@@ -102,4 +108,108 @@
   {% set endpoint = 'employees.list_view' %}
   {% include "_pagination.html" %}
 </div>
+
+<!-- Import Employees Dialog -->
+<div class="dialog-overlay" id="importDialogOverlay">
+  <div class="dialog" style="max-width:520px">
+    <div class="dialog-header">
+      <span class="material-icons-round" style="vertical-align:middle;margin-right:6px;color:var(--accent)">upload_file</span>
+      Import Employees
+    </div>
+    <div class="dialog-body">
+      <form method="POST" action="{{ url_for('io.import_employees') }}" enctype="multipart/form-data" id="importForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="form-group full mb-2">
+    <label>CSV or Excel file</label>
+    <input type="file" name="file" class="form-control" accept=".csv,.xlsx" required
+           onchange="document.getElementById('importFileName').textContent = this.files[0] ? this.files[0].name : 'No file selected';">
+    <div class="form-hint" id="importFileName">No file selected</div>
+  </div>
+
+  <div class="mb-2">
+    <div class="form-hint mb-1">Expected columns (header row, names are case-insensitive):</div>
+    <div class="table-wrapper" style="overflow-x:auto">
+      <table style="font-size:11px">
+        <thead>
+          <tr>
+            <th>employeeId<sup>*</sup></th>
+            <th>fullName<sup>*</sup></th>
+            <th>site</th>
+            <th>email</th>
+            <th>position</th>
+            <th>division</th>
+            <th>department</th>
+            <th>section</th>
+            <th>group</th>
+            <th>status</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+    <div class="form-hint mt-1">
+      <code class="text-mono">employeeId</code> and <code class="text-mono">fullName</code> are required.
+      <code class="text-mono">employeeId</code> is used to match existing records; rows with a matching ID update that
+      employee, rows with a new ID create one. <code class="text-mono">status</code> defaults to <code>Active</code> if blank.
+    </div>
+  </div>
+
+  <label class="flex items-center gap-2" style="font-size:12.5px;color:var(--ink-muted);margin-bottom:4px">
+    <input type="checkbox" name="dry_run" value="1">
+    Preview changes before applying (not yet implemented)
+  </label>
+</form>
+    </div>
+    <div class="dialog-footer">
+      <button type="button" class="btn btn-outline btn-sm" onclick="closeImportDialog()">Cancel</button>
+      <button type="submit" form="importForm" class="btn btn-primary btn-sm">
+        <span class="material-icons-round">upload_file</span> Import
+      </button>
+    </div>
+  </div>
+</div>
+
+{% if failed_rows %}
+<div class="card mb-3">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">warning</span> Import Problems ({{ failed_rows|length }})</div>
+  </div>
+  <div class="card-body">
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Reason</th><th>Row</th></tr></thead>
+        <tbody>
+        {% for fr in failed_rows %}
+        <tr>
+          <td>{{ fr.reason }}</td>
+          <td class="text-muted text-small">{{ fr.row|join(', ') }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+document.querySelectorAll('.tab-item').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById(this.dataset.tab).classList.add('active');
+  });
+});
+
+function openImportDialog() {
+  document.getElementById('importDialogOverlay').classList.add('show');
+}
+function closeImportDialog() {
+  document.getElementById('importDialogOverlay').classList.remove('show');
+}
+document.getElementById('importDialogOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeImportDialog();
+});
+</script>
 {% endblock %}

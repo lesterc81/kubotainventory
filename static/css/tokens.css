@@ -1,0 +1,207 @@
+/* =====================================================================
+   IT ASSET SYSTEM — Design Tokens: Glass layer
+   ---------------------------------------------------------------------
+   Source of truth for the glassmorphism theme. Loaded AFTER main.css so
+   the token overrides below cascade into every component that references
+   them via var(). Theme is dark-navy-first (the flagship for this build);
+   light theme stays coherent for daylight office use.
+   ===================================================================== */
+
+:root {
+  /* Colour — cool navy base, teal accent */
+  --hue: 214;
+
+  /* Solid fallbacks (used when backdrop-filter is unsupported) */
+  --bg: #0b101b;
+  --surface: #141b2e;
+  --surface-2: #101623;
+  --surface-elevated: #182137;
+
+  --ink: #e8eefb;
+  --ink-muted: #96a3bd;
+  --ink-subtle: #5a6a86;
+
+  /* Accent — teal/mint */
+  --accent: #30e0c0;
+  --accent-hover: #57e9cf;
+  --accent-strong: #22c9ac;
+  --accent-soft: rgba(48, 224, 192, 0.14);
+  --accent-glow: rgba(48, 224, 192, 0.42);
+
+  /* Status */
+  --success: #6fe0a3;
+  --success-soft: rgba(111, 224, 163, 0.13);
+  --warning: #e3b45c;
+  --warning-soft: rgba(227, 180, 92, 0.13);
+  --danger: #e88a7d;
+  --danger-soft: rgba(232, 138, 125, 0.13);
+  --info: #7fb6e6;
+  --info-soft: rgba(127, 182, 230, 0.13);
+
+  --success-border: rgba(111, 224, 163, 0.28);
+  --warning-border: rgba(227, 180, 92, 0.28);
+  --danger-border: rgba(232, 138, 125, 0.28);
+  --info-border: rgba(127, 182, 230, 0.28);
+
+  --focus-ring: rgba(48, 224, 192, 0.4);
+
+  /* ─── Glass surfaces ──────────────────────────────────────────────── */
+  --glass-bg:        rgba(20, 27, 46, 0.5);    /* faint panels */
+  --glass-bg-soft:   rgba(17, 23, 40, 0.32);   /* charts, form bands */
+  --glass-bg-card:   rgba(14, 19, 34, 0.72);   /* tables / readable blocks */
+  --glass-bg-rail:   rgba(15, 21, 38, 0.74);   /* sidebar: control layer */
+  --glass-bg-pop:    rgba(22, 30, 52, 0.85);   /* tooltips / modals */
+
+  --glass-border:       rgba(255, 255, 255, 0.09);
+  --glass-border-soft:  rgba(255, 255, 255, 0.05);
+  --glass-border-bright:rgba(255, 255, 255, 0.22);
+  --glass-hi:           rgba(255, 255, 255, 0.06); /* inner top highlight */
+  --glass-scrim:        rgba(8, 12, 22, 0.35);      /* behind-dense-content tint */
+
+  /* ─── Blur scale ──────────────────────────────────────────────────── */
+  --blur-sm: 8px;      /* icon badges, inputs */
+  --blur-md: 16px;     /* stat cards, charts, panels */
+  --blur-lg: 24px;     /* modals, tooltips */
+  --blur-xl: 32px;     /* sidebar "control layer" */
+
+  /* ─── Shadow / elevation ──────────────────────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(4, 8, 18, 0.3), inset 0 1px 0 var(--glass-hi);
+  --shadow-sm: 0 2px 6px -1px rgba(4, 8, 18, 0.32), 0 1px 2px rgba(4, 8, 18, 0.2),
+               inset 0 1px 0 var(--glass-hi);
+  --shadow-md: 0 10px 24px -8px rgba(3, 7, 16, 0.55), 0 4px 10px -4px rgba(3, 7, 16, 0.35),
+               inset 0 1px 0 var(--glass-hi);
+  --shadow-lg: 0 22px 52px -14px rgba(3, 7, 16, 0.68), 0 8px 20px -8px rgba(3, 7, 16, 0.45),
+               inset 0 1px 0 var(--glass-hi);
+  --shadow-inset-sm: inset 0 1px 2px rgba(4, 8, 18, 0.2);
+  --shadow-inset-md: inset 0 2px 7px rgba(4, 8, 18, 0.24);
+
+  /* Semantic glows for stat-icon badges */
+  --glow-accent:  0 0 20px -2px rgba(48, 224, 192, 0.5), inset 0 0 12px rgba(48, 224, 192, 0.28);
+  --glow-success: 0 0 18px -2px rgba(111, 224, 163, 0.5), inset 0 0 12px rgba(111, 224, 163, 0.28);
+  --glow-warning: 0 0 18px -2px rgba(227, 180, 92, 0.5), inset 0 0 12px rgba(227, 180, 92, 0.28);
+  --glow-danger:  0 0 18px -2px rgba(232, 138, 125, 0.5), inset 0 0 12px rgba(232, 138, 125, 0.28);
+  --glow-info:    0 0 18px -2px rgba(127, 182, 230, 0.5), inset 0 0 12px rgba(127, 182, 230, 0.28);
+
+  /* ─── Radius scale ────────────────────────────────────────────────── */
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 26px;
+  --radius-rail: 22px;      /* floating sidebar */
+  --radius-pill: 999px;
+
+  /* ─── Spacing scale ───────────────────────────────────────────────── */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 18px;
+  --sp-5: 24px; --sp-6: 30px; --sp-7: 40px; --sp-8: 48px;
+
+  /* Floating sidebar geometry */
+  --fd-inset: 14px;          /* gap from viewport edge */
+  --fd-gap: 20px;            /* gap between rail and content */
+  --sidebar-width: 236px;    /* expanded rail */
+  --sidebar-rail-width: 76px;/* collapsed icon rail */
+
+  /* ─── Typography (unchanged stack, tuned weights) ─────────────────── */
+  --font-body: 'DM Sans', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-display: 'Prata', Georgia, serif;
+
+  /* ─── Motion ──────────────────────────────────────────────────────── */
+  --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: 0.32s cubic-bezier(0.2, 0.85, 0.35, 1);
+  --transition-spring: 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ─── Charts — restrained teal family + neutrals ──────────────────── */
+  --chart-1: #22d3c5;   /* primary teal */
+  --chart-2: #2f9fd8;   /* teal-blue */
+  --chart-3: #57b8a5;   /* muted teal */
+  --chart-4: #9ad7c9;   /* pale teal */
+  --chart-5: #c9eef2;   /* ice */
+  --chart-n1: #7d8aa3;  /* mid neutral */
+  --chart-n2: #56637c;  /* deep neutral */
+  --chart-n3: #39455c;  /* darkest neutral */
+  --chart-grid: rgba(150, 163, 189, 0.14);
+
+  /* Legacy aliases referenced by older components */
+  --nm-light: transparent;
+  --nm-dark: transparent;
+  --paper: var(--bg);
+  --card: var(--surface);
+  --border-ink: var(--glass-border);
+  --border-strong: var(--glass-border);
+  --stamp-red: var(--danger);
+  --stamp-green: var(--success);
+  --stamp-gold: var(--warning);
+  --stamp-blue: var(--info);
+  --stamp-red-light: var(--danger-soft);
+  --stamp-green-light: var(--success-soft);
+  --stamp-gold-light: var(--warning-soft);
+  --stamp-blue-light: var(--info-soft);
+  --error: var(--danger);
+  --shadow: var(--shadow-sm);
+  --shadow-red: 0 6px 20px -6px rgba(232, 138, 125, 0.5), 0 1px 2px rgba(4, 8, 18, 0.2);
+  --radius-asym: var(--radius);
+  --radius-asym-sm: var(--radius-sm);
+}
+
+/* ─── Light theme ─────────────────────────────────────────────────── */
+html[data-theme="light"] {
+  --bg: #eef2f9;
+  --surface: #ffffff;
+  --surface-2: #e6ebf5;
+  --surface-elevated: #ffffff;
+
+  --ink: #182033;
+  --ink-muted: #5c6b85;
+  --ink-subtle: #94a1bb;
+
+  --accent: #0e9e8e;
+  --accent-hover: #0c8a7d;
+  --accent-strong: #0b8a7c;
+  --accent-soft: rgba(14, 158, 142, 0.12);
+  --accent-glow: rgba(14, 158, 142, 0.35);
+
+  --success: #1f9d62;
+  --success-soft: rgba(31, 157, 98, 0.11);
+  --warning: #b37e1e;
+  --warning-soft: rgba(179, 126, 30, 0.11);
+  --danger: #c2493c;
+  --danger-soft: rgba(194, 73, 60, 0.11);
+  --info: #2f76b4;
+  --info-soft: rgba(47, 118, 180, 0.11);
+
+  --success-border: rgba(31, 157, 98, 0.25);
+  --warning-border: rgba(179, 126, 30, 0.25);
+  --danger-border: rgba(194, 73, 60, 0.25);
+  --info-border: rgba(47, 118, 180, 0.25);
+
+  --focus-ring: rgba(14, 158, 142, 0.35);
+
+  --glass-bg:        rgba(255, 255, 255, 0.58);
+  --glass-bg-soft:   rgba(255, 255, 255, 0.46);
+  --glass-bg-card:   rgba(255, 255, 255, 0.7);
+  --glass-bg-rail:   rgba(255, 255, 255, 0.68);
+  --glass-bg-pop:    rgba(255, 255, 255, 0.92);
+
+  --glass-border:        rgba(255, 255, 255, 0.6);
+  --glass-border-soft:   rgba(255, 255, 255, 0.45);
+  --glass-border-bright: rgba(255, 255, 255, 0.9);
+  --glass-hi:           rgba(255, 255, 255, 0.7);
+  --glass-scrim:        rgba(226, 232, 244, 0.3);
+
+  --shadow-xs: 0 1px 2px rgba(24, 32, 51, 0.1), inset 0 1px 0 var(--glass-hi);
+  --shadow-sm: 0 2px 6px -1px rgba(24, 32, 51, 0.12), 0 1px 2px rgba(24, 32, 51, 0.08),
+               inset 0 1px 0 var(--glass-hi);
+  --shadow-md: 0 10px 24px -10px rgba(24, 32, 51, 0.2), 0 4px 10px -4px rgba(24, 32, 51, 0.12),
+               inset 0 1px 0 var(--glass-hi);
+  --shadow-lg: 0 22px 52px -18px rgba(24, 32, 51, 0.28), 0 8px 20px -8px rgba(24, 32, 51, 0.16),
+               inset 0 1px 0 var(--glass-hi);
+  --shadow-inset-sm: inset 0 1px 2px rgba(24, 32, 51, 0.08);
+  --shadow-inset-md: inset 0 2px 7px rgba(24, 32, 51, 0.1);
+
+  --glow-accent:  0 0 20px -2px rgba(14, 158, 142, 0.4), inset 0 0 12px rgba(14, 158, 142, 0.22);
+  --glow-success: 0 0 18px -2px rgba(31, 157, 98, 0.4), inset 0 0 12px rgba(31, 157, 98, 0.22);
+  --glow-warning: 0 0 18px -2px rgba(179, 126, 30, 0.4), inset 0 0 12px rgba(179, 126, 30, 0.22);
+  --glow-danger:  0 0 18px -2px rgba(194, 73, 60, 0.4), inset 0 0 12px rgba(194, 73, 60, 0.22);
+  --glow-info:    0 0 18px -2px rgba(47, 118, 180, 0.4), inset 0 0 12px rgba(47, 118, 180, 0.22);
+
+  --chart-grid: rgba(24, 32, 51, 0.12);
+}

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Accessory Bundle: {{ emp.full_name }}</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicon.png') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
+  <style>
+    :root {
+      --bg: #F6F5F3; --surface: #FFFFFF; --border: #E6E4E0; --border-strong: #D2CFC8;
+      --ink: #262422; --muted: #6E6A64; --subtle: #A6A19A;
+      --accent: #2F7D52; --success: #2F7D52; --info: #3F6D93; --warning: #A9711B; --danger: #C0392B;
+      --shadow: 0 18px 44px rgba(30,28,26,.12), 0 4px 12px rgba(30,28,26,.05);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100dvh;
+      padding: 16px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      max-width: 440px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+    .card-header {
+      background: var(--accent);
+      color: white;
+      padding: 24px;
+      text-align: center;
+    }
+    .card-header .icon { font-size: 48px; margin-bottom: 8px; }
+    .card-header h1 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      word-break: break-word;
+      line-height: 1.2;
+    }
+    .card-header .emp-id {
+      margin-top: 6px;
+      font-size: 13px;
+      opacity: .85;
+    }
+    .card-header .type-badge {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 4px 16px;
+      border-radius: 8px;
+      background: rgba(255,255,255,.15);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      border: 1.5px solid rgba(255,255,255,.25);
+    }
+    .card-body { padding: 20px 24px; }
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin: 16px 0 8px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .empty-state {
+      text-align: center;
+      padding: 28px 16px;
+      color: var(--muted);
+      border: 1.5px dashed var(--border-strong);
+      border-radius: 12px;
+      font-size: 14px;
+    }
+    .empty-state .icon { font-size: 40px; display: block; margin-bottom: 8px; color: var(--subtle); }
+    .bundle-group {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .bundle-group:last-child { margin-bottom: 0; }
+    .bundle-type {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+    .bundle-count {
+      background: var(--accent);
+      color: white;
+      border-radius: 999px;
+      padding: 1px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .bundle-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 3px 0;
+      border-top: 1px solid var(--border);
+    }
+    .bundle-item:first-of-type { border-top: none; }
+    .bundle-item .tag { font-family: 'JetBrains Mono', monospace; color: var(--ink); font-weight: 600; }
+    .bundle-item .meta { font-size: 11px; color: var(--subtle); }
+    .card-footer {
+      padding: 12px 24px 20px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+    .card-footer a {
+      color: var(--ink);
+      font-size: 13px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .card-footer a:hover { color: var(--accent); text-decoration: underline; }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141312; --surface: #1C1A19; --border: #2C2A27; --border-strong: #3E3B37;
+        --ink: #EDEAE6; --muted: #A6A09A; --subtle: #716C66;
+        --accent: #58A678; --success: #58A678; --info: #77A2C4; --warning: #C99A3E; --danger: #E0685B;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <div class="icon material-icons-round">view_module</div>
+      <h1>{{ emp.full_name }}</h1>
+      <div class="emp-id">{{ emp.employee_id }}</div>
+      {% if primary_emp %}
+      <div class="emp-id" style="margin-top:4px">Accountable Officer: {{ primary_emp.full_name }}</div>
+      {% endif %}
+      <span class="type-badge">Accessory Bundle</span>
+      {% if emp.status != 'Active' %}
+      <span class="type-badge" style="background:#B03A2A">Status: {{ emp.status }}</span>
+      {% endif %}
+    </div>
+
+    {% if emp.status != 'Active' %}
+    <div style="background:#FBF3EA;border-bottom:1px solid #F0DCC0;color:#7A4E0F;padding:12px 24px;font-size:13px">
+      This bundle belongs to <strong>{{ emp.full_name }}</strong>, whose status is <strong>{{ emp.status }}</strong>.
+      {% if total == 0 %}
+      No items are attributed to them — the equipment was likely retrieved. Scan the Asset QR on the unit or check Inventory for the current device.
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card-body">
+      <div class="section-title">Bundle Contents ({{ total }})</div>
+      {% if total == 0 %}
+      <div class="empty-state">
+        <span class="icon material-icons-round">inventory_2</span>
+        {% if emp.status != 'Active' %}
+        No items currently attributed{% else %}No accessories currently assigned{% endif %}
+      </div>
+      {% else %}
+        {% for grp in groups %}
+        <div class="bundle-group">
+          <div class="bundle-type">
+            <span>{{ grp.type }}</span>
+            <span class="bundle-count">&times;{{ grp['items']|length }}</span>
+          </div>
+          {% for item in grp['items'] %}
+          <div class="bundle-item">
+            <span class="tag">{{ item.asset_tag }}</span>
+            <span class="meta">{{ item.model_name or '—' }}{% if item.serial_number %} · S/N {{ item.serial_number }}{% endif %}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <div class="card-footer">
+      <a href="/">IT Asset System</a>
+    </div>
+  </div>
+</body>
+</html>

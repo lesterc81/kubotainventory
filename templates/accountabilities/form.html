@@ -9,7 +9,7 @@
 <div class="page-header">
   <div class="page-header-left">
     <h1>New Accountability Record</h1>
-    <p>Assign assets and workstation to an employee</p>
+    <p>Assign assets to an employee's accountability record</p>
   </div>
 </div>
 
@@ -35,21 +35,6 @@
           <label>Effective Date *</label>
           {{ form.effective_date(class="form-control") }}
         </div>
-      </div>
-    </div>
-
-    <!-- Workstation -->
-    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">workspaces</span> Workstation (Optional)</div></div>
-    <div class="card-body">
-      <div class="form-group" style="max-width:400px">
-        <label>Select Workstation</label>
-        <select name="workstation_id_select" class="form-control" id="workstationSelect">
-          <option value="">— None —</option>
-          {% for w in workstations %}
-          <option value="{{ w._id }}">{{ w.workstation_code }}{% if w.workstation_name %} — {{ w.workstation_name }}{% endif %} ({{ w.location }})</option>
-          {% endfor %}
-        </select>
-        {{ form.workstation_id(id="workstation_id") }}
       </div>
     </div>
 
@@ -92,7 +77,7 @@
     <div class="card-body">
       <label class="checkbox-inline" style="display:flex;align-items:center;gap:8px;cursor:pointer">
         {{ form.send_email() }}
-        <span style="font-size:14px">Send a "Confirm I Received These Assets" email to the employee</span>
+        <span style="font-size:14px">Send a "Confirm I Received These Assets" email to the accountable officer</span>
       </label>
       <p class="text-muted text-small mt-1" style="margin-top:6px">
         Use this for new handovers. For assets the employee already has, leave it unchecked —
@@ -234,10 +219,5 @@
 
   document.querySelector('form').addEventListener('submit', sync);
 })();
-
-// Wire workstation select to hidden field
-document.getElementById('workstationSelect')?.addEventListener('change', function() {
-  document.getElementById('workstation_id').value = this.value;
-});
 </script>
 {% endblock %}

@@ -67,7 +67,7 @@
     <!-- Employee -->
     {% if emp %}
     <div class="card mb-3">
-      <div class="card-header"><div class="card-title"><span class="material-icons-round">person</span> Employee</div></div>
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">person</span> Employee (Primary)</div></div>
       <div class="card-body">
         <div class="info-list">
           <div class="info-row"><span class="info-label">Name</span><span class="info-value"><a href="{{ url_for('employees.detail', employee_id=emp._id) }}">{{ emp.full_name }}</a></span></div>
@@ -75,19 +75,6 @@
           <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ emp.department }}</span></div>
           <div class="info-row"><span class="info-label">Position</span><span class="info-value">{{ emp.position }}</span></div>
           <div class="info-row"><span class="info-label">Site</span><span class="info-value">{{ emp.site }}</span></div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Workstation -->
-    {% if ws %}
-    <div class="card mb-3">
-      <div class="card-header"><div class="card-title"><span class="material-icons-round">workspaces</span> Workstation</div></div>
-      <div class="card-body">
-        <div class="info-list">
-          <div class="info-row"><span class="info-label">Code</span><span class="info-value"><a href="{{ url_for('workstations.detail', ws_id=ws._id) }}">{{ ws.workstation_code }}</a></span></div>
-          <div class="info-row"><span class="info-label">Location</span><span class="info-value">{{ ws.location }}</span></div>
         </div>
       </div>
     </div>
@@ -120,6 +107,30 @@
       {% endif %}
     </div>
 
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">person</span> Secondary Holders</div></div>
+      <div class="card-body">
+        {% if secondary_emps %}
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Name</th><th>ID</th><th>Department</th></tr></thead>
+            <tbody>
+            {% for se in secondary_emps %}
+            <tr>
+              <td><a href="{{ url_for('employees.detail', employee_id=se.id) }}">{{ se.full_name }}</a></td>
+              <td class="text-mono">{{ se.employee_id }}</td>
+              <td>{{ se.department }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-small" style="margin:0">No secondary (agency) holders — this record is held directly by the primary employee.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- Remarks Timeline -->
     <div class="card">
       <div class="card-header"><div class="card-title"><span class="material-icons-round">timeline</span> Remarks Timeline</div></div>
@@ -148,6 +159,11 @@
     <div class="card">
       <div class="card-header"><div class="card-title"><span class="material-icons-round">bolt</span> Actions</div></div>
       <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+        {% if emp %}
+        <a href="{{ url_for('io.accountability_sheet', employee_id=emp._id) }}" class="btn btn-tonal w-full" style="justify-content:center">
+          <span class="material-icons-round">description</span> Print Accountability Sheet
+        </a>
+        {% endif %}
         <a href="{{ url_for('io.accountability_pdf', acc_id=acc._id) }}" class="btn btn-primary w-full" style="justify-content:center">
           <span class="material-icons-round">picture_as_pdf</span> Download PDF
         </a>

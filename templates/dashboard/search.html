@@ -11,7 +11,7 @@
 <form action="{{ url_for('dashboard.search') }}" method="get" class="card mb-3" style="padding:20px">
   <div class="filter-search" style="max-width:500px">
     <span class="material-icons-round">search</span>
-    <input type="search" name="q" value="{{ q }}" placeholder="Search asset tag, serial, employee name, workstation…" autofocus style="width:100%">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search asset tag, serial, employee name…" autofocus style="width:100%">
     <button type="submit" class="btn btn-primary btn-sm">Search</button>
   </div>
 </form>
@@ -74,33 +74,6 @@
   </div>
   {% else %}
   <div class="empty-state" style="padding:24px"><span class="material-icons-round">person_off</span><p>No employees found</p></div>
-  {% endif %}
-</div>
-
-<!-- Workstations -->
-<div class="card mb-3">
-  <div class="card-header">
-    <div class="card-title"><span class="material-icons-round">workspaces</span> Workstations ({{ results.workstations|length }})</div>
-  </div>
-  {% if results.workstations %}
-  <div class="table-wrapper">
-    <table>
-      <thead><tr><th>Code</th><th>Name</th><th>Location</th><th>Status</th><th></th></tr></thead>
-      <tbody>
-      {% for w in results.workstations %}
-      <tr>
-        <td class="text-mono"><a href="{{ url_for('workstations.detail', ws_id=w._id) }}">{{ w.workstation_code }}</a></td>
-        <td>{{ w.workstation_name }}</td>
-        <td>{{ w.location }}</td>
-        <td><span class="chip {% if w.status == 'Active' %}chip-green{% elif w.status == 'Archived' %}chip-grey{% else %}chip-orange{% endif %}">{{ w.status }}</span></td>
-        <td><a href="{{ url_for('workstations.detail', ws_id=w._id) }}" class="btn btn-tonal btn-sm">View</a></td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty-state" style="padding:24px"><span class="material-icons-round">workspaces</span><p>No workstations found</p></div>
   {% endif %}
 </div>
 {% endif %}

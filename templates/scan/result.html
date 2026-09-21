@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>{{ type }}: {{ tag }}</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicon.png') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}">
   <style>
     :root {
@@ -33,7 +35,7 @@
       margin-top: 16px;
     }
     .card-header {
-      background: {% if type == 'Workstation' %}var(--ink){% else %}var(--accent){% endif %};
+      background: var(--accent);
       color: white;
       padding: 24px;
       text-align: center;
@@ -148,7 +150,7 @@
   <div class="card">
     <div class="card-header">
       <div class="icon material-icons-round">
-        {{ 'desktop_windows' if type == 'Workstation' else 'inventory_2' }}
+        inventory_2
       </div>
       <h1>{{ tag }}</h1>
       <span class="type-badge">{{ type }}</span>
@@ -189,10 +191,10 @@
         <span class="field-value">{{ location or '—' }}</span>
       </div>
 
-      {% if workstation_info %}
+      {% if stockroom_custodian %}
       <div class="field">
-        <span class="field-label">Workstation</span>
-        <span class="field-value">{{ workstation_info }}</span>
+        <span class="field-label">Stockroom Custodian</span>
+        <span class="field-value">{{ stockroom_custodian }}</span>
       </div>
       {% endif %}
 

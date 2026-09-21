@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}System Settings — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>System Settings</h1>
+    <p>Governance and accountability configuration</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title"><span class="material-icons-round">inventory_2</span> Stockroom Custodian</div></div>
+  <div class="card-body">
+    <p class="text-muted" style="font-size:13px;margin-bottom:16px">
+      The single person accountable for all <b>Available</b> inventory sitting in the stockroom.
+      Their name is shown on stockroom assets throughout the system (list, asset page, and
+      QR scan results). They do <b>not</b> need an accountability record per asset — assigning
+      an asset to an employee always overrides them with the real holder.
+    </p>
+    <form method="POST" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group" style="flex:1;min-width:240px">
+        <label for="employee_id">Accountable Employee</label>
+        <select name="employee_id" id="employee_id" class="form-control">
+          <option value="">— None (unset) —</option>
+          {% for e in employees %}
+          <option value="{{ e._id }}" {% if current_id == e._id %}selected{% endif %}>
+            {{ e.full_name }} · {{ e.employee_id }}{% if e.department %} · {{ e.department }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">save</span> Save
+      </button>
+    </form>
+
+    {% if stockroom_custodian %}
+    <div class="info-list" style="margin-top:18px">
+      <div class="info-row">
+        <span class="info-label">Current custodian</span>
+        <span class="info-value">
+          <a href="{{ url_for('employees.detail', employee_id=stockroom_custodian._id) }}">{{ stockroom_custodian.full_name }}</a>
+        </span>
+      </div>
+      <div class="info-row"><span class="info-label">Employee ID</span><span class="info-value text-mono">{{ stockroom_custodian.employee_id }}</span></div>
+      <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ stockroom_custodian.department }}</span></div>
+      <div class="info-row"><span class="info-label">Site</span><span class="info-value">{{ stockroom_custodian.site }}</span></div>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:24px">
+      <span class="material-icons-round">person_off</span>
+      <h3>No custodian set</h3>
+      <p>Pick an employee above to give stockroom inventory an accountable holder.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

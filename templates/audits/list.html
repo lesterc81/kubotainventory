@@ -35,7 +35,7 @@
         <tr>
           <th>Date</th>
           <th>Type</th>
-          <th>Asset / Workstation</th>
+          <th>Asset</th>
           <th>Result</th>
           <th>Findings</th>
           <th>Auditor</th>
@@ -47,9 +47,7 @@
         <td>{{ a.audit_date[:10] if a.audit_date else '—' }}</td>
         <td>{{ a.audit_type }}</td>
         <td class="text-muted text-small">
-          {% if a.asset_id %}Asset: {{ a.asset_id }}{% endif %}
-          {% if a.workstation_id %}WS: {{ a.workstation_id }}{% endif %}
-          {% if not a.asset_id and not a.workstation_id %}—{% endif %}
+          {% if a.asset_id %}Asset: {{ a.asset_id }}{% else %}—{% endif %}
         </td>
         <td>
           <span class="chip {% if a.result == 'Pass' %}chip-green{% elif a.result == 'Fail' %}chip-red{% else %}chip-orange{% endif %}">

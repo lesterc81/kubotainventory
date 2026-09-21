@@ -2,11 +2,7 @@
 {% block title %}Transfer Assets — IT Asset System{% endblock %}
 {% block content %}
 <div class="breadcrumb">
-  {% if source.kind == "workstation" %}
-    <a href="{{ url_for('workstations.list_view') }}">Workstations</a>
-  {% else %}
-    <a href="{{ url_for('employees.list_view') }}">Employees</a>
-  {% endif %}
+  <a href="{{ url_for('employees.list_view') }}">Employees</a>
   <span class="material-icons-round">chevron_right</span>
   <a href="{{ source.detail_url }}">{{ source.back_label }}</a>
   <span class="material-icons-round">chevron_right</span>
@@ -82,10 +78,7 @@
                 {% if asset._cur_emp %}
                   {{ asset._cur_emp }}
                 {% else %}
-                  <span class="text-muted">Not Assigned</span>
-                {% endif %}
-                {% if asset._cur_ws %}
-                  <br><small class="text-muted">{{ asset._cur_ws }}</small>
+                  <span class="text-muted">Stockroom / Not Assigned</span>
                 {% endif %}
               </td>
             </tr>
@@ -118,10 +111,6 @@
               <input type="radio" name="target_type" value="employee" checked onchange="toggleTargetFields()">
               Transfer to Employee
             </label>
-            <label class="radio-inline">
-              <input type="radio" name="target_type" value="workstation" onchange="toggleTargetFields()">
-              Transfer to Workstation
-            </label>
           </div>
         </div>
 
@@ -133,16 +122,6 @@
             <option value="{{ emp.id }}">
               {{ emp.full_name }} ({{ emp.employee_id }}) - {{ emp.department }}
             </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="form-group full" id="workstationSelectGroup" style="display: none;">
-          <label>Workstation *</label>
-          <select name="workstation_id" class="form-control">
-            <option value="">-- Select Workstation --</option>
-            {% for ws in all_workstations %}
-            <option value="{{ ws.id }}">{{ ws.workstation_code }} - {{ ws.location }}</option>
             {% endfor %}
           </select>
         </div>
@@ -170,24 +149,10 @@
 
 <script>
 function toggleTargetFields() {
-  const targetType = document.querySelector('input[name="target_type"]:checked').value;
   const empGroup = document.getElementById('employeeSelectGroup');
-  const wsGroup = document.getElementById('workstationSelectGroup');
   const empSel = empGroup.querySelector('select');
-  const wsSel = wsGroup.querySelector('select');
-  if (targetType === 'employee') {
-    empGroup.style.display = '';
-    wsGroup.style.display = 'none';
-    empSel.required = true;
-    wsSel.required = false;
-    wsSel.disabled = true;
-  } else {
-    empGroup.style.display = 'none';
-    wsGroup.style.display = '';
-    empSel.required = false;
-    empSel.disabled = true;
-    wsSel.required = true;
-  }
+  empGroup.style.display = '';
+  empSel.required = true;
 }
 
 function refreshSelectedCount() {

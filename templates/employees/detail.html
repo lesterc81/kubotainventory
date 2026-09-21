@@ -21,6 +21,15 @@
     <a href="{{ url_for('employees.edit', employee_id=emp.id) }}" class="btn btn-primary btn-sm">
       <span class="material-icons-round">edit</span> Edit
     </a>
+    {% if current_user.can_edit() and emp.status != 'Resigned' %}
+    <form method="POST" action="{{ url_for('employees.resign', employee_id=emp.id) }}"
+          onsubmit="return confirm('Return ALL of {{ emp.full_name }}'s assets to stockroom and mark them as Resigned? This cannot be undone by this button alone.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger btn-sm">
+        <span class="material-icons-round">logout</span> Resign &amp; Retrieve
+      </button>
+    </form>
+    {% endif %}
   </div>
 </div>
 
@@ -34,24 +43,51 @@
       <div><label>Full Name</label><span>{{ emp.full_name }}</span></div>
       <div><label>Email</label><span>{{ emp.email }}</span></div>
       <div><label>Department</label><span>{{ emp.department }}</span></div>
+      <div><label>Division</label><span>{{ emp.division or 'N/A' }}</span></div>
+      <div><label>Section</label><span>{{ emp.section or 'N/A' }}</span></div>
+      <div><label>Group</label><span>{{ emp.group or 'N/A' }}</span></div>
       <div><label>Position</label><span>{{ emp.position }}</span></div>
       <div><label>Site</label><span>{{ emp.site }}</span></div>
       <div><label>Contact</label><span>{{ emp.contact_number or 'N/A' }}</span></div>
       <div><label>Status</label><span class="badge badge-{{ emp.status|lower }}">{{ emp.status }}</span></div>
       <div><label>Date Hired</label><span>{{ emp.date_hired or 'N/A' }}</span></div>
+      {% if primary_emp %}
+      <div><label>Accountable Officer</label><span><a href="{{ url_for('employees.detail', employee_id=primary_emp.id) }}">{{ primary_emp.full_name }}</a></span></div>
+      {% endif %}
     </div>
   </div>
 </div>
 
-<!-- Assets: Employee Assets / Workstation Assets tabs -->
+<!-- Accessory Bundle QR -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">qr_code_2</span> Accessory Bundle QR</div>
+  </div>
+  <div class="card-body" style="display:flex;flex-direction:column;align-items:center;gap:12px">
+    <div class="qr-box">
+      <img src="data:image/png;base64,{{ qr_b64 }}" alt="Accessory Bundle QR">
+      <div class="qr-label">{{ emp.full_name }}</div>
+    </div>
+    <div class="text-muted text-small" style="text-align:center">
+      Scan to view {{ emp.full_name }}'s currently assigned items. The QR encodes only a stable link &mdash; it never changes; the scan page always shows live assignments.
+    </div>
+    <a href="{{ url_for('io.employee_stickers') }}?ids={{ emp.id }}" class="btn btn-outline btn-sm w-full" style="justify-content:center">
+      <span class="material-icons-round">print</span> Print QR Sticker
+    </a>
+    <a href="{{ url_for('io.accountability_sheet', employee_id=emp.id) }}" class="btn btn-outline btn-sm w-full" style="justify-content:center">
+      <span class="material-icons-round">description</span> Print Accountability Sheet
+    </a>
+  </div>
+</div>
+
+<!-- Assets -->
 <div class="card">
   <div class="tab-bar">
-    <div class="tab-item active" data-tab="tab-emp-assets">Employee Assets ({{ assets|length }})</div>
-    <div class="tab-item" data-tab="tab-ws-assets">Workstation Assets ({{ ws_assets|length }})</div>
+    <div class="tab-item active" data-tab="tab-emp-assets">Assigned Assets ({{ assets|length }})</div>
   </div>
 
   <div id="tab-emp-assets" class="tab-panel active">
-    <p class="text-muted" style="padding:12px 20px 0">Assets directly assigned to {{ emp.full_name }}.</p>
+    <p class="text-muted" style="padding:12px 20px 0">Assets assigned to {{ emp.full_name }} (including agency-held items under this officer).</p>
     {% if assets %}
     <div class="table-wrapper">
     <table>
@@ -86,44 +122,7 @@
     {% else %}
     <div class="empty-state">
       <span class="material-icons-round">devices</span>
-      <p>No assets directly assigned to this employee.</p>
-    </div>
-    {% endif %}
-  </div>
-
-  <div id="tab-ws-assets" class="tab-panel">
-    <p class="text-muted" style="padding:12px 20px 0">Assets at the workstation(s) this employee is accountable for. They stay at the seat when the employee leaves.</p>
-    {% if ws_assets %}
-    <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Asset Tag</th>
-          <th>Workstation</th>
-          <th>Type</th>
-          <th>Model</th>
-          <th>Serial Number</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for asset in ws_assets %}
-        <tr>
-          <td><a href="{{ url_for('assets.detail', asset_id=asset.id) }}">{{ asset.asset_tag }}</a></td>
-          <td>{{ asset.workstation_name or '—' }}</td>
-          <td>{{ asset.device_type }}</td>
-          <td>{{ asset.model_name }}</td>
-          <td>{{ asset.serial_number }}</td>
-          <td><span class="badge badge-{{ asset.status|lower }}">{{ asset.status }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-    {% else %}
-    <div class="empty-state">
-      <span class="material-icons-round">desktop_windows</span>
-      <p>No workstation assets — the employee has no active workstation accountability with assets.</p>
+      <p>No assets assigned to this employee.</p>
     </div>
     {% endif %}
   </div>
@@ -165,35 +164,6 @@
     {% else %}
     <p class="text-muted">No accountability records.</p>
     {% endif %}
-  </div>
-</div>
-
-<!-- Remarks -->
-<div class="card">
-  <div class="card-header">
-    <div class="card-title"><span class="material-icons-round">comment</span> Remarks</div>
-  </div>
-  <div class="card-body">
-    {% if remarks %}
-      {% for r in remarks %}
-        <div class="remark">
-          <div class="remark-text">{{ r.remark }}</div>
-          <div class="remark-meta">{{ r.author }} • {{ r.created_at[:10] }}</div>
-        </div>
-      {% endfor %}
-    {% else %}
-      <p class="text-muted">No remarks yet.</p>
-    {% endif %}
-
-    <form method="POST" action="{{ url_for('remarks.add') }}" class="remark-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="record_id" value="{{ emp.id }}">
-      <input type="hidden" name="record_type" value="Employees">
-      <div class="form-group">
-        <textarea name="remark" class="form-control" rows="2" placeholder="Add a remark..."></textarea>
-      </div>
-      <button type="submit" class="btn btn-sm btn-outline">Add Remark</button>
-    </form>
   </div>
 </div>
 

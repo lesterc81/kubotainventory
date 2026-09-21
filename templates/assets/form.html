@@ -38,14 +38,34 @@
   {% endif %}
   <form method="POST" novalidate>
     {{ form.hidden_tag() }}
-    <!-- Identification -->
-    <div class="card-header"><div class="card-title"><span class="material-icons-round">label</span> Identification</div></div>
+    <!-- Core -->
+    <div class="card-header"><div class="card-title"><span class="material-icons-round">label</span> Core Details</div></div>
     <div class="card-body">
       <div class="form-grid">
         <div class="form-group">
           <label>Asset Tag *</label>
-          {{ form.asset_tag(class="form-control" + (" error" if form.asset_tag.errors else ""), placeholder="IT-2024-001") }}
+          {{ form.asset_tag(class="form-control" + (" error" if form.asset_tag.errors else ""), placeholder="KPIMNL-0001", id="asset_tag") }}
           {% for e in form.asset_tag.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+          <span class="form-error" id="siteFromTagNote" style="color:var(--ink-muted);font-size:12px;font-style:normal;margin-top:6px"></span>
+        </div>
+        <div class="form-group">
+          <label>Site</label>
+          {{ form.site(class="form-control", id="assetSite") }}
+          {% for e in form.site.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+          <span id="siteHelp" style="font-size:12px;color:var(--ink-muted);line-height:1.4">
+            Site becomes a short tag code: Head Office = HO, Bustos = BLN, Batangas = BTS, Davao = DVO. Tags look like <strong>HO-L-01</strong>. Generic <strong>KPI</strong> tags stay as-is.
+          </span>
+        </div>
+        <div class="form-group">
+          <label>Device Code</label>
+          {{ form.device_code(class="form-control", id="device_code", placeholder="L / MO / MS…") }}
+          {% for e in form.device_code.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
+          <datalist id="deviceCodes">
+            {% for c in device_code_suggestions %}<option value="{{ c }}"></option>{% endfor %}
+          </datalist>
+          <span id="devCodeHelp" style="font-size:12px;color:var(--ink-muted);line-height:1.4">
+            Short letter for the type, embedded in the tag (e.g. L = laptop, MO = monitor, MS = mouse, KB = keyboard). Fills in from Device Type; change freely.
+          </span>
         </div>
         <div class="form-group">
           <label>Serial Number *</label>
@@ -53,80 +73,90 @@
           {% for e in form.serial_number.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
         </div>
         <div class="form-group">
-          <label>Endpoint Name / Hostname</label>
-          {{ form.endpoint_name(class="form-control", placeholder="DESKTOP-ABCDEF") }}
-        </div>
-        <div class="form-group">
           <label>Device Type *</label>
           {{ form.device_type(class="form-control") }}
         </div>
         <div class="form-group">
           <label>Model Name *</label>
-          {{ form.model_name(class="form-control", placeholder="ThinkPad X1 Carbon") }}
+          {{ form.model_name(class="form-control" + (" error" if form.model_name.errors else ""), placeholder="ThinkPad X1 Carbon") }}
           {% for e in form.model_name.errors %}<span class="form-error">{{ e }}</span>{% endfor %}
         </div>
-        <div class="form-group">
-          <label>Manufacturer</label>
-          {{ form.manufacturer(class="form-control", placeholder="Lenovo") }}
-        </div>
-        <div class="form-group">
-          <label>OS Version</label>
-          {{ form.os_version(class="form-control", placeholder="Windows 11 Pro 22H2") }}
-        </div>
-        <div class="form-group">
-          <label>Location</label>
-          {{ form.location(class="form-control", placeholder="Manila HQ - Floor 3") }}
-        </div>
-        <div class="form-group">
-          <label>Status</label>
-          {{ form.status(class="form-control") }}
-        </div>
       </div>
     </div>
 
-    <!-- Specs -->
-    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">memory</span> Specifications</div></div>
-    <div class="card-body">
-      <div class="form-grid">
-        <div class="form-group">
-          <label>CPU</label>
-          {{ form.cpu(class="form-control", placeholder="Intel Core i7-1265U") }}
-        </div>
-        <div class="form-group">
-          <label>RAM</label>
-          {{ form.ram(class="form-control", placeholder="16 GB DDR5") }}
-        </div>
-        <div class="form-group">
-          <label>Storage</label>
-          {{ form.storage(class="form-control", placeholder="512 GB NVMe SSD") }}
+    <!-- Additional details (collapsed) -->
+    <details class="card" style="margin-top:1px" {% if asset %}open{% endif %}>
+      <summary class="card-header" style="cursor:pointer;align-items:center;gap:8px">
+        <span class="material-icons-round" id="extraChevron">expand_more</span>
+        <div class="card-title"><span class="material-icons-round">tune</span> Additional Details</div>
+      </summary>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Endpoint Name / Hostname</label>
+            {{ form.endpoint_name(class="form-control", placeholder="DESKTOP-ABCDEF") }}
+          </div>
+          <div class="form-group">
+            <label>Manufacturer</label>
+            {{ form.manufacturer(class="form-control", placeholder="Lenovo") }}
+          </div>
+          <div class="form-group">
+            <label>OS Version</label>
+            {{ form.os_version(class="form-control", placeholder="Windows 11 Pro 22H2") }}
+          </div>
+          <div class="form-group">
+            <label>Location</label>
+            {{ form.location(class="form-control", placeholder="Manila HQ - Floor 3") }}
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            {{ form.status(class="form-control") }}
+          </div>
+          <div class="form-group">
+            <label>CPU</label>
+            {{ form.cpu(class="form-control", placeholder="Intel Core i7-1265U") }}
+          </div>
+          <div class="form-group">
+            <label>RAM</label>
+            {{ form.ram(class="form-control", placeholder="16 GB DDR5") }}
+          </div>
+          <div class="form-group">
+            <label>Storage</label>
+            {{ form.storage(class="form-control", placeholder="512 GB NVMe SSD") }}
+          </div>
+          <div class="form-group">
+            <label>Purchase Date</label>
+            {{ form.purchase_date(class="form-control") }}
+          </div>
+          <div class="form-group">
+            <label>Warranty Expiry</label>
+            {{ form.warranty_expiry(class="form-control") }}
+          </div>
+          <div class="form-group">
+            <label>Purchase Cost (₱)</label>
+            {{ form.purchase_cost(class="form-control", placeholder="45000") }}
+          </div>
+          <div class="form-group">
+            <label>Vendor / Supplier</label>
+            {{ form.vendor(class="form-control", placeholder="CDO Computers") }}
+          </div>
+          <div class="form-group full">
+            <label>Notes</label>
+            {{ form.notes(class="form-control", rows=3, placeholder="Additional notes…") }}
+          </div>
         </div>
       </div>
-    </div>
+    </details>
 
-    <!-- Procurement -->
-    <div class="card-header" style="margin-top:1px"><div class="card-title"><span class="material-icons-round">receipt_long</span> Procurement</div></div>
-    <div class="card-body">
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Purchase Date</label>
-          {{ form.purchase_date(class="form-control") }}
-        </div>
-        <div class="form-group">
-          <label>Warranty Expiry</label>
-          {{ form.warranty_expiry(class="form-control") }}
-        </div>
-        <div class="form-group">
-          <label>Purchase Cost (₱)</label>
-          {{ form.purchase_cost(class="form-control", placeholder="45000") }}
-        </div>
-        <div class="form-group">
-          <label>Vendor / Supplier</label>
-          {{ form.vendor(class="form-control", placeholder="CDO Computers") }}
-        </div>
-        <div class="form-group full">
-          <label>Notes</label>
-          {{ form.notes(class="form-control", rows=3, placeholder="Additional notes…") }}
-        </div>
+    <!-- Custom columns -->
+    <div class="card" style="margin-top:1px">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">dynamic_feed</span> Custom Columns</div></div>
+      <div class="card-body">
+        <p class="text-muted text-small" style="margin-bottom:12px">Add any extra info (e.g. IP Address, PO #, Color, Asset Number). Optional.</p>
+        <div id="custom-columns"></div>
+        <button type="button" id="addCustomColumn" class="btn btn-tonal btn-sm">
+          <span class="material-icons-round">add</span> Add Column
+        </button>
       </div>
     </div>
 
@@ -139,4 +169,146 @@
     </div>
   </form>
 </div>
+
+<style>
+  .custom-col-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .custom-col-row .form-control { flex: 1; }
+</style>
+<script>
+(function () {
+  var sel = document.getElementById('assetSite');
+  var tag = document.getElementById('asset_tag');
+  var dc = document.getElementById('device_code');
+  var dt = document.getElementById('device_type');
+  var note = document.getElementById('siteFromTagNote');
+  var byPrefix = {{ site_by_prefix | tojson }};
+  var shorts = {{ site_short_codes | tojson }};
+  var codeDefaults = {{ device_code_defaults | tojson }};
+  var shortsInverse = {};
+  Object.keys(shorts).forEach(function (p) { shortsInverse[shorts[p]] = p; });
+  var isEdit = {{ (1 if asset else 0) | tojson }};
+  if (!sel || !tag || !dc || !dt) return;
+
+  function seg0(t) { return (t || '').trim().toUpperCase().split('-')[0] || ''; }
+
+  function isSiteToken(tok) {
+    return !!byPrefix[tok] || !!shortsInverse[tok];
+  }
+
+  function siteLabel(tok) {
+    return byPrefix[tok] ? byPrefix[tok] : byPrefix[shortsInverse[tok]];
+  }
+
+  function currentBody() {
+    var s = tag.value.trim().toUpperCase();
+    var parts = s.split('-');
+    if (parts.length > 1 && isSiteToken(parts[0])) parts = parts.slice(1);
+    return parts.join('-');
+  }
+
+  function rebuild() {
+    var v = sel.value;
+    if (!v || v === 'KPI') { return; }
+    var dCode = dc.value || codeDefaults[dt.value] || '';
+    var body = currentBody();
+    tag.value = shorts[v] + '-' + dCode + (body ? '-' + body : '');
+  }
+
+  function updateNote() {
+    if (!note) return;
+    var tok = seg0(tag.value);
+    if (tok && isSiteToken(tok)) {
+      note.textContent = 'This tag belongs to ' + siteLabel(tok) + ' (' + (shorts[shortsInverse[tok] || tok] || tok) + ').';
+    } else if (tok && tok.indexOf('KPI') === 0) {
+      note.textContent = 'Generic KPI tag — left as-is.';
+    } else {
+      note.textContent = '';
+    }
+  }
+
+  if (!isEdit) {
+    dc.value = dc.value || codeDefaults[dt.value] || '';
+    sel.addEventListener('change', rebuild);
+    dt.addEventListener('change', function () {
+      dc.value = dc.value || codeDefaults[dt.value] || '';
+      rebuild();
+    });
+    dc.addEventListener('input', rebuild);
+  } else {
+    var parts = (tag.value || '').toUpperCase().split('-');
+    if (parts.length > 1 && isSiteToken(parts[0]) && parts[1]) dc.value = parts[1];
+  }
+  var ep = document.getElementById('endpoint_name');
+  if (ep) {
+    ep.addEventListener('input', function () {
+      var up = (ep.value || '').trim().toUpperCase();
+      var m = /^(KPIMNL|KPIBLN|KPIBTS|KPID)([A-Z]+)?([0-9]*)$/.exec(up);
+      if (!m || !shorts[m[1]]) return;
+      if (sel.value === 'KPI') sel.value = m[1];
+      var letter = m[2] && m[2].length === 1 ? m[2] : null;
+      if (letter) {
+        var typeMap = { L: 'Laptop', D: 'Desktop', M: 'Monitor', P: 'Printer',
+                        T: 'Tablet', N: 'Network Equipment', S: 'Server' };
+        var codeMap = { L: 'L', D: 'D', M: 'MO', P: 'PR', T: 'T', N: 'NW', S: 'SRV' };
+        if (typeMap[letter]) dt.value = typeMap[letter];
+        dc.value = codeMap[letter] || letter;
+      }
+      if (!(tag.value || '').trim()) { /* leave blank — backend assigns next number */ }
+    });
+  }
+  tag.addEventListener('input', updateNote);
+  updateNote();
+})();
+</script>
+<script>
+(function () {
+  var seed = {{ (custom_fields or {}) | tojson }};
+  var rows = seed && typeof seed === 'object'
+    ? Object.keys(seed).map(function (k) { return { k: k, v: seed[k] }; })
+    : [];
+  var box = document.getElementById('custom-columns');
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function render() {
+    box.innerHTML = '';
+    if (!rows.length) {
+      box.innerHTML = '<p class="text-muted text-small" style="margin-bottom:12px">No extra columns yet.</p>';
+      return;
+    }
+    rows.forEach(function (r, i) {
+      var div = document.createElement('div');
+      div.className = 'custom-col-row';
+      div.innerHTML =
+        '<input type="text" name="custom_key_' + i + '" class="form-control" placeholder="Column name" value="' + esc(r.k) + '">' +
+        '<input type="text" name="custom_val_' + i + '" class="form-control" placeholder="Value" value="' + esc(r.v) + '">' +
+        '<button type="button" class="btn btn-outline btn-sm" data-remove="' + i + '">' +
+          '<span class="material-icons-round" style="font-size:18px">close</span></button>';
+      box.appendChild(div);
+    });
+    box.querySelectorAll('[data-remove]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        rows.splice(parseInt(btn.getAttribute('data-remove'), 10), 1);
+        render();
+      });
+    });
+  }
+
+  document.getElementById('addCustomColumn').addEventListener('click', function () {
+    rows.push({ k: '', v: '' });
+    render();
+  });
+
+  render();
+})();
+</script>
 {% endblock %}

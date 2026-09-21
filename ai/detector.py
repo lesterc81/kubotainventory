@@ -48,7 +48,7 @@ RULES = [
 
 
 def _resolve_record(mongo_db, record_id):
-    """Look up a record_id across assets, workstations, employees and return readable info."""
+    """Look up a record_id across assets, employees and return readable info."""
     from bson.objectid import ObjectId
     try:
         oid = ObjectId(record_id)
@@ -56,7 +56,6 @@ def _resolve_record(mongo_db, record_id):
         return None
     for coll, type_label, tag_field, model_field in [
         (mongo_db.assets, "Asset", "asset_tag", "model_name"),
-        (mongo_db.workstations, "Workstation", "workstation_code", "workstation_name"),
         (mongo_db.employees, "Employee", "employee_id", "full_name"),
     ]:
         doc = coll.find_one({"_id": oid}, {tag_field: 1, model_field: 1, "device_type": 1})

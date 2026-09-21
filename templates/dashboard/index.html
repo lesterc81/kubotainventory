@@ -21,7 +21,7 @@
 
 <!-- Stat Cards -->
 <div class="stats-grid">
-  <div class="stat-card">
+  <div class="stat-card stat-primary">
     <div class="stat-card-icon"><span class="material-icons-round">devices</span></div>
     <div class="stat-card-value">{{ stats.total_assets }}</div>
     <div class="stat-card-label">Total Assets</div>
@@ -35,11 +35,6 @@
     <div class="stat-card-icon"><span class="material-icons-round">inventory_2</span></div>
     <div class="stat-card-value">{{ stats.available_assets }}</div>
     <div class="stat-card-label">Available</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-card-icon"><span class="material-icons-round">workspaces</span></div>
-    <div class="stat-card-value">{{ stats.total_workstations }}</div>
-    <div class="stat-card-label">Workstations</div>
   </div>
   <div class="stat-card">
     <div class="stat-card-icon"><span class="material-icons-round">badge</span></div>
@@ -67,19 +62,19 @@
 <div class="charts-grid">
   <div class="chart-card">
     <div class="chart-title">Assets by Location</div>
-    <canvas id="chartLocation" height="220"></canvas>
+    <canvas id="chartLocation" height="244"></canvas>
   </div>
   <div class="chart-card">
     <div class="chart-title">Assets by Type</div>
-    <canvas id="chartType" height="220"></canvas>
+    <canvas id="chartType" height="244"></canvas>
   </div>
   <div class="chart-card">
     <div class="chart-title">Accountability Status</div>
-    <canvas id="chartAcc" height="220"></canvas>
+    <canvas id="chartAcc" height="244"></canvas>
   </div>
   <div class="chart-card">
     <div class="chart-title">Audit Results</div>
-    <canvas id="chartAudit" height="220"></canvas>
+    <canvas id="chartAudit" height="244"></canvas>
   </div>
 </div>
 
@@ -138,26 +133,18 @@
 {% endblock %}
 {% block extra_js %}
 <script>
-function cssVar(name, fallback) {
+function token(name, fallback) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
-const accent   = cssVar('--accent', '#B03A2A');
-const success  = cssVar('--success', '#2F7D52');
-const warning  = cssVar('--warning', '#A9711B');
-const info     = cssVar('--info', '#3F6D93');
-const danger   = cssVar('--danger', '#C0392B');
-const ink      = cssVar('--ink', '#262422');
-const inkMuted = cssVar('--ink-muted', '#6E6A64');
-const inkSub   = cssVar('--ink-subtle', '#A6A19A');
-const border   = cssVar('--border', '#E6E4E0');
-const palette = [accent, success, warning, info, ink, inkMuted, inkSub, border];
 const byLoc = {{ by_location | safe }};
 const byType = {{ by_type | safe }};
 const accStatus = {{ accountability_status | safe }};
 const auditRes = {{ audit_results | safe }};
-renderBarChart('chartLocation', byLoc.map(d=>d.label), byLoc.map(d=>d.value), accent);
-renderDoughnut('chartType', byType.map(d=>d.label), byType.map(d=>d.value), palette);
-renderDoughnut('chartAcc', accStatus.map(d=>d.label), accStatus.map(d=>d.value), [success, warning, info, danger, inkSub]);
-renderDoughnut('chartAudit', auditRes.map(d=>d.label), auditRes.map(d=>d.value), [success, danger, warning]);
+renderBarChart('chartLocation', byLoc.map(d => d.label), byLoc.map(d => d.value));
+renderDoughnut('chartType', byType.map(d => d.label), byType.map(d => d.value));
+renderDoughnut('chartAcc', accStatus.map(d => d.label), accStatus.map(d => d.value),
+  [token('--success', '#6FE0A3'), token('--warning', '#E3B45C'), token('--info', '#7FB6E6'), token('--danger', '#E88A7D'), token('--chart-n2', '#56637C')]);
+renderDoughnut('chartAudit', auditRes.map(d => d.label), auditRes.map(d => d.value),
+  [token('--success', '#6FE0A3'), token('--danger', '#E88A7D'), token('--warning', '#E3B45C')]);
 </script>
 {% endblock %}

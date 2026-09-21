@@ -43,6 +43,7 @@
       <div class="card-body">
         <div class="info-list">
           <div class="info-row"><span class="info-label">Asset Tag</span><span class="info-value font-bold text-mono">{{ asset.asset_tag }}</span></div>
+          <div class="info-row"><span class="info-label">Site</span><span class="info-value">{% set a_site = asset.asset_tag|site_from_tag %}{% if a_site %}<span class="chip chip-grey">{{ a_site }}</span>{% else %}—{% endif %}</span></div>
           <div class="info-row"><span class="info-label">Serial Number</span><span class="info-value text-mono">{{ asset.serial_number }}</span></div>
           <div class="info-row"><span class="info-label">Endpoint Name</span><span class="info-value">{{ asset.endpoint_name or '—' }}</span></div>
           <div class="info-row"><span class="info-label">Device Type</span><span class="info-value">{{ asset.device_type }}</span></div>
@@ -80,54 +81,17 @@
         </div>
       </div>
     </div>
-    {% endif %}
-
-    <!-- Workstation Assigned -->
-    {% if ws %}
+    {% elif stockroom_custodian %}
     <div class="card mb-3">
-      <div class="card-header"><div class="card-title"><span class="material-icons-round">desktop_windows</span> Workstation Assigned</div></div>
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">inventory_2</span> Stockroom Custodian</div></div>
       <div class="card-body">
+        <p class="text-muted" style="font-size:12px;margin-bottom:10px">
+          Unassigned stockroom inventory — accountable to this person until assigned.
+        </p>
         <div class="info-list">
-          <div class="info-row"><span class="info-label">Code</span><span class="info-value"><a href="{{ url_for('workstations.detail', ws_id=ws._id) }}">{{ ws.workstation_code }}</a></span></div>
-          <div class="info-row"><span class="info-label">Location</span><span class="info-value">{{ ws.location }}</span></div>
-          <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ ws.department or '—' }}</span></div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Transfer History -->
-    {% if asset.history %}
-    <div class="card mb-3">
-      <div class="card-header"><div class="card-title"><span class="material-icons-round">history</span> Transfer History</div></div>
-      <div class="card-body">
-        <div class="timeline">
-          {% for h in asset.history|reverse %}
-          <div class="timeline-item">
-            <div class="timeline-dot"><span class="material-icons-round">swap_horiz</span></div>
-            <div class="timeline-body">
-              <div class="timeline-text">
-                <strong>{{ h.type }}</strong> 
-                {% if h.from_employee and h.to_employee %}
-                  from {{ h.from_employee }} to {{ h.to_employee }}
-                {% elif h.from_workstation and h.to_workstation %}
-                  from {{ h.from_workstation }} to {{ h.to_workstation }}
-                {% elif h.to_employee %}
-                  assigned to {{ h.to_employee }}
-                {% elif h.to_workstation %}
-                  moved to {{ h.to_workstation }}
-                {% else %}
-                  transferred
-                {% endif %}
-                {% if h.location %} to {{ h.location }}{% endif %}
-              </div>
-              <div class="timeline-meta">
-                {% if h.reason %}Reason: {{ h.reason }} · {% endif %}
-                By {{ h.by }} · {{ h.date[:19].replace('T',' ') if h.date else '' }}
-              </div>
-            </div>
-          </div>
-          {% endfor %}
+          <div class="info-row"><span class="info-label">Name</span><span class="info-value"><a href="{{ url_for('employees.detail', employee_id=stockroom_custodian._id) }}">{{ stockroom_custodian.full_name }}</a></span></div>
+          <div class="info-row"><span class="info-label">Employee ID</span><span class="info-value text-mono">{{ stockroom_custodian.employee_id }}</span></div>
+          <div class="info-row"><span class="info-label">Department</span><span class="info-value">{{ stockroom_custodian.department }}</span></div>
         </div>
       </div>
     </div>
@@ -137,6 +101,7 @@
     <div class="card">
       <div class="tab-bar">
         <div class="tab-item active" data-tab="tab-remarks">Remarks ({{ remarks|length }})</div>
+        <div class="tab-item" data-tab="tab-history">History ({{ history_timeline|length }})</div>
         <div class="tab-item" data-tab="tab-audits">Audits ({{ audits|length }})</div>
       </div>
 
@@ -146,28 +111,63 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="record_id" value="{{ asset._id }}">
           <input type="hidden" name="record_type" value="Assets">
-          <div class="form-group mb-2">
-            <textarea name="remark" class="form-control" rows="2" placeholder="Enter a remark…" required></textarea>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group">
+              <label>Title</label>
+              <input type="text" name="title" class="form-control" placeholder="e.g. Sent to vendor" required>
+            </div>
+            <div class="form-group">
+              <label>Owner</label>
+              <input type="text" name="owner" class="form-control" placeholder="e.g. IT Dept / name" required>
+            </div>
           </div>
-          <button type="submit" class="btn btn-primary btn-sm"><span class="material-icons-round">add_comment</span> Add</button>
+          <div class="form-group">
+            <label>Remarks</label>
+            <textarea name="remark" class="form-control" rows="2" placeholder="What happened…" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm"><span class="material-icons-round">add_comment</span> Add Remark</button>
         </form>
         {% endif %}
         {% if remarks %}
-        <div style="padding:16px">
-          <div class="timeline">
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Date</th><th>Title</th><th>Owner</th><th>Remarks</th><th>By</th></tr></thead>
+            <tbody>
             {% for r in remarks %}
-            <div class="timeline-item">
-              <div class="timeline-dot"><span class="material-icons-round">comment</span></div>
-              <div class="timeline-body">
-                <div class="timeline-text">{{ r.remark }}</div>
-                <div class="timeline-meta">{{ r.author }} · {{ r.created_at[:19].replace('T',' ') if r.created_at else '' }}</div>
-              </div>
-            </div>
+            <tr>
+              <td class="text-muted text-small">{{ r.created_at[:10] if r.created_at else '—' }}</td>
+              <td><strong>{{ r.title or 'Untitled' }}</strong></td>
+              <td>{{ r.owner or '—' }}</td>
+              <td>{{ r.remark }}</td>
+              <td class="text-muted text-small">{{ r.author }}</td>
+            </tr>
             {% endfor %}
-          </div>
+            </tbody>
+          </table>
         </div>
         {% else %}
-        <div class="empty-state"><span class="material-icons-round">comment</span><p>No remarks</p></div>
+        <div class="empty-state"><span class="material-icons-round">comment</span><p>No remarks yet</p></div>
+        {% endif %}
+      </div>
+
+      <div id="tab-history" class="tab-panel tab-content">
+        {% if history_timeline %}
+        <div class="timeline">
+          {% for h in history_timeline %}
+          <div class="timeline-item">
+            <div class="timeline-dot"><span class="material-icons-round">{% if h.kind == 'transfer' %}swap_horiz{% else %}comment{% endif %}</span></div>
+            <div class="timeline-body">
+              <div class="timeline-text">
+                {% if h.kind == 'transfer' %}<strong>Transfer</strong> {{ h.text }}
+                {% else %}<strong>{{ h.text.split(' — ')[0] }}</strong>{% if ' — ' in h.text %} — {{ h.text.split(' — ', 1)[1] }}{% endif %}{% endif %}
+              </div>
+              <div class="timeline-meta">By {{ h.by or '—' }} · {{ h.date[:19].replace('T',' ') if h.date else '' }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state"><span class="material-icons-round">history</span><p>No activity yet</p></div>
         {% endif %}
       </div>
 
@@ -216,6 +216,21 @@
       <div class="card-body"><p style="font-size:13px;color:var(--ink-muted)">{{ asset.notes }}</p></div>
     </div>
     {% endif %}
+    {% if asset.custom_fields %}
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">dynamic_feed</span> Custom Columns</div></div>
+      <div class="card-body" style="padding:8px 16px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          {% for k, v in asset.custom_fields.items() %}
+          <tr>
+            <th style="text-align:left;padding:6px 8px 6px 0;color:var(--ink-muted);font-weight:500;white-space:nowrap">{{ k }}</th>
+            <td style="padding:6px 0;text-align:right;word-break:break-word">{{ v }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -231,7 +246,6 @@
           <select name="target_type" class="form-control" id="targetType" required>
             <option value="">-- Select Type --</option>
             <option value="employee">Employee</option>
-            <option value="workstation">Workstation</option>
             <option value="stockroom">Stockroom (Unassign)</option>
           </select>
         </div>
@@ -240,15 +254,6 @@
           <input type="text" id="employeeSearch" class="form-control" placeholder="Search employee…" autocomplete="off">
           <input type="hidden" name="target_id" id="targetId">
           <div id="empResults" style="border:1px solid var(--border);border-radius:8px;background:var(--card);display:flex;flex-direction:column;max-height:160px;overflow-y:auto;margin-top:4px;"></div>
-        </div>
-        <div class="form-group" id="workstationSelectGroup" style="display:none;">
-          <label>Select Workstation</label>
-          <select name="target_id" class="form-control">
-            <option value="">-- Select Workstation --</option>
-            {% for ws_item in available_workstations %}
-            <option value="{{ ws_item.id }}">{{ ws_item.workstation_code }} - {{ ws_item.location }}</option>
-            {% endfor %}
-          </select>
         </div>
         <div class="form-group">
           <label>Reason</label>
@@ -304,26 +309,19 @@
     });
   });
 
-  // Transfer dialog - toggle employee/workstation fields based on type
+  // Transfer dialog - toggle employee/stockroom fields based on type
   const targetType = document.getElementById('targetType');
   const employeeGroup = document.getElementById('employeeSearchGroup');
-  const workstationGroup = document.getElementById('workstationSelectGroup');
   
   if (targetType) {
     targetType.addEventListener('change', function() {
       if (this.value === 'employee') {
         employeeGroup.style.display = 'block';
-        workstationGroup.style.display = 'none';
-      } else if (this.value === 'workstation') {
-        employeeGroup.style.display = 'none';
-        workstationGroup.style.display = 'block';
       } else if (this.value === 'stockroom') {
         employeeGroup.style.display = 'none';
-        workstationGroup.style.display = 'none';
         document.getElementById('targetId').value = 'stockroom';
       } else {
         employeeGroup.style.display = 'none';
-        workstationGroup.style.display = 'none';
       }
     });
   }

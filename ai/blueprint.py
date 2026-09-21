@@ -1,4 +1,6 @@
 import logging
+import threading
+import time
 from datetime import datetime, timedelta
 
 from bson import ObjectId
@@ -12,6 +14,23 @@ from .reporter import make_summary_report, analyze_anomalies
 logger = logging.getLogger("itsystem.ai")
 
 ai_bp = Blueprint("ai", __name__, url_prefix="/ai")
+
+# Windowed per-user rate limits for AI endpoints (protects Groq API cost).
+_ai_limits = {}
+_ai_limit_lock = threading.Lock()
+
+
+def _ai_calls_allowed(key, max_calls, window_seconds):
+    """Register a call for ``key``; True when under budget, False when limited."""
+    with _ai_limit_lock:
+        now = time.time()
+        cutoff = now - window_seconds
+        recent = [t for t in _ai_limits.get(key, []) if t >= cutoff]
+        _ai_limits[key] = recent
+        if len(recent) >= max_calls:
+            return False
+        recent.append(now)
+        return True
 
 
 def _db():
@@ -129,6 +148,9 @@ def delete_all_anomalies():
 @login_required
 @editor_required
 def scan():
+    if not _ai_calls_allowed(f"scan:{current_user.id}", max_calls=10, window_seconds=600):
+        return jsonify({"ok": False,
+                        "error": "Too many scan requests. Try again in a few minutes."}), 429
     db = _db()
     anomalies = run_anomaly_detection(db)
     for a in anomalies:
@@ -144,6 +166,9 @@ def scan():
 @login_required
 @editor_required
 def generate_report():
+    if not _ai_calls_allowed(f"report:{current_user.id}", max_calls=3, window_seconds=600):
+        return jsonify({"ok": False,
+                        "error": "Report limit reached (3 per 10 minutes). Try again later."}), 429
     db = _db()
     summary = make_summary_report(db)
     db.ai_reports.insert_one({
