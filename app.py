@@ -238,6 +238,13 @@ def get_or_404(collection_name, raw_id):
     return doc
 
 
+def _clean_serial(value):
+    """Blank serial numbers become None so the partial unique index can skip them."""
+    if isinstance(value, str):
+        value = value.strip()
+    return value or None
+
+
 def serialize_doc(doc):
     """Convert a MongoDB document into a JSON/Jinja-safe dict."""
     if doc is None:
@@ -2240,7 +2247,7 @@ def new():
         doc = {
             "asset_tag": asset_tag,
             "endpoint_name": form.endpoint_name.data,
-            "serial_number": form.serial_number.data,
+            "serial_number": _clean_serial(form.serial_number.data),
             "device_type": form.device_type.data,
             "model_name": form.model_name.data,
             "manufacturer": form.manufacturer.data,
@@ -2365,7 +2372,7 @@ def edit(asset_id):
         update = {
             "asset_tag": form.asset_tag.data,
             "endpoint_name": form.endpoint_name.data,
-            "serial_number": form.serial_number.data,
+            "serial_number": _clean_serial(form.serial_number.data),
             "device_type": form.device_type.data,
             "model_name": form.model_name.data,
             "manufacturer": form.manufacturer.data,
@@ -4222,7 +4229,7 @@ def inventory_intake_import():
                 doc = {
                     "asset_tag": asset_tag,
                     "endpoint_name": "",
-                    "serial_number": serial or "",
+                    "serial_number": _clean_serial(serial),
                     "device_type": device_type,
                     "model_name": model or "",
                     "status": "Assigned" if emp_doc else "Available",
@@ -4470,7 +4477,7 @@ def inventory_scan_import():
                     "updated_at": now,
                 }
                 if serial and serial.strip():
-                    fields["serial_number"] = serial.strip()
+                    fields["serial_number"] = _clean_serial(serial)
                 if remarks and remarks.strip():
                     fields["remarks"] = remarks.strip()
                 mongo.db.assets.update_one(
@@ -4808,7 +4815,23 @@ def register_cli(app):
     def create_indexes_command():
         """Create MongoDB indexes."""
         with app.app_context():
-            mongo.db.assets.create_index("serial_number", unique=True, sparse=True)
+            # Unique index on serial_number must only cover real (non-empty)
+            # values. A plain unique+sparse index still treats "" as a value,
+            # so duplicate blank serials crash with E11000. Use a partial index
+            # that only covers string serials and normalize blanks to None.
+            info = mongo.db.assets.index_information()
+            legacy_serial = info.get("serial_number_1")
+            want_partial = {"serial_number": {"$type": "string"}}
+            if legacy_serial and legacy_serial.get("partialFilterExpression") != want_partial:
+                print("[INDEXES] Dropping legacy unique serial_number index…")
+                mongo.db.assets.drop_index("serial_number_1")
+            # Migrate any legacy blank serials out of the index.
+            mongo.db.assets.update_many(
+                {"serial_number": {"$regex": r"^\s*$"}},
+                {"$set": {"serial_number": None}})
+            mongo.db.assets.create_index("serial_number", unique=True,
+                                         partialFilterExpression=want_partial,
+                                         name="serial_number_1")
             mongo.db.assets.create_index("asset_tag")
             mongo.db.assets.create_index("assigned_to")
             mongo.db.assets.create_index([("status", 1), ("asset_tag", 1)])
