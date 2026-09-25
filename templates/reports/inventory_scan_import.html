@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Import Inventory Scan — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Import Inventory Scan</h1>
+    <p>Scan back a printed employee inventory form to verify the rows</p>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">
+  <div>
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">qr_code_scanner</span> Upload Scan</div></div>
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="card-body">
+          <div class="form-group mb-3">
+            <label>Scanned form (PDF, PNG, or JPG)</label>
+            <input type="file" name="file" class="form-control"
+                   accept=".pdf,.png,.jpg,.jpeg" required>
+            <span class="form-hint">Use a clear, well-lit photo or a 300 dpi scan so the row QR tokens decode cleanly.</span>
+          </div>
+        </div>
+        <div class="card-footer" style="padding:12px 24px">
+          <button type="submit" class="btn btn-primary">
+            <span class="material-icons-round">fact_check</span> Verify from Scan
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">help_outline</span> How it works</div></div>
+      <div class="card-body" style="font-size:13px;display:flex;flex-direction:column;gap:14px">
+        <div>
+          <strong>What this does</strong>
+          <p class="text-muted mt-1">Every row on a printed employee inventory form carries a signed QR token. Uploading a scan of the completed paper form decodes those tokens and records a per-row <b>verification</b> — it never silently changes an asset's status.</p>
+        </div>
+        <div>
+          <strong>What gets updated</strong>
+          <p class="text-muted mt-1">For each verified row we set the asset's <b>last verified</b> stamp, append an inventory-verification entry to its history, log an audit entry, and keep a copy of the scan for the record.</p>
+        </div>
+        <div>
+          <strong>Tip</strong>
+          <p class="text-muted mt-1">If the rows don't import, re-scan at higher resolution or hold the phone closer and steadier. Hand-written serial numbers are never read — only the printed QR tokens.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

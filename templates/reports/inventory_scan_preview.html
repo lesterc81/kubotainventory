@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Verify Scan Preview — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Scan-back Preview</h1>
+    <p>{{ verified|length }} QR row(s) decoded — review and correct below before importing</p>
+  </div>
+  <div class="page-header-right">
+    <span class="badge badge-neutral">{{ scan_name }}</span>
+  </div>
+</div>
+
+<form method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="confirm" value="1">
+  <input type="hidden" name="scan_name" value="{{ scan_name }}">
+
+  {% if not verified %}
+  <div class="empty-state" style="padding:32px">
+    <span class="material-icons-round">qr_code_2</span>
+    <h3>No readable QR found</h3>
+    <p>Use a clear, well-lit photo or a 300 dpi scan of the filled form.</p>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="material-icons-round">fact_check</span> Verify each decoded row</div>
+      <label style="font-size:12px;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="checkAll" checked> Select all
+      </label>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:44px"></th>
+              <th>Asset Tag</th>
+              <th>Type</th>
+              <th>Serial Number</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in verified %}
+            <tr>
+              <td><input type="checkbox" class="row-check"
+                         name="asset_ids" value="{{ v.asset_id }}" checked>
+                  <input type="hidden" name="token_{{ v.asset_id }}" value="{{ v.token }}"></td>
+              <td><span class="text-mono" style="font-weight:600">{{ v.asset_tag }}</span></td>
+              <td><span class="text-muted" style="font-size:12px">{{ v.device_type }}</span></td>
+              <td><input type="text" name="serial_{{ v.asset_id }}"
+                         value="{{ v.serial_number }}" class="form-control"
+                         style="min-width:140px" placeholder="—"></td>
+              <td><input type="text" name="remarks_{{ v.asset_id }}"
+                         value="{{ v.remarks }}" class="form-control"
+                         style="min-width:180px" placeholder="(optional)"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer" style="display:flex;justify-content:flex-end;gap:10px">
+      <a href="{{ url_for('io.inventory_scan_import') }}" class="btn btn-outline">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">check_circle</span> Confirm &amp; import {{ verified|length }} row(s)
+      </button>
+    </div>
+  </div>
+  {% endif %}
+</form>
+
+<script>
+(function () {
+  var checkAll = document.getElementById('checkAll');
+  var rows = document.querySelectorAll('.row-check');
+  if (checkAll) {
+    checkAll.addEventListener('change', function () {
+      rows.forEach(function (r) { r.checked = checkAll.checked; });
+    });
+  }
+  rows.forEach(function (r) {
+    r.addEventListener('change', function () {
+      checkAll.checked = rows.length > 0 && Array.prototype.every.call(rows, function (c) { return c.checked; });
+    });
+  });
+})();
+</script>
+{% endblock %}

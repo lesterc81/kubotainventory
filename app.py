@@ -835,7 +835,12 @@ def _deliver_download(filename, buf_bytes, mimetype):
                                    full_path=dest)
         except Exception:
             pass
-    return send_file(buf, download_name=filename, as_attachment=True, mimetype=mimetype)
+    resp = send_file(buf, download_name=filename, as_attachment=True,
+                     mimetype=mimetype, max_age=0)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
+    return resp
 
 
 def generate_qr(data_str, fill_color="black", back_color="white"):
@@ -921,6 +926,30 @@ def get_stockroom_custodian(db):
         return None
     return db.employees.find_one({"_id": oid})
 
+
+def is_scan_qr_enabled():
+    """Master override for the QR scan / scan-back importer feature.
+
+    Defaults to ON so existing behaviour is unchanged until an admin flips it.
+    While OFF every scan route resolves to a "scanning disabled" page so the
+    team can still print & physically stick asset stickers during data
+    reconciliation without accidentally writing half-verified/duplicate rows.
+    """
+    doc = mongo.db.settings.find_one({"_id": "scan_qr_enabled"})
+    if doc is None:
+        return True
+    return doc.get("enabled", True) is not False
+
+
+def set_scan_qr_enabled(enabled, username):
+    mongo.db.settings.update_one(
+        {"_id": "scan_qr_enabled"},
+        {"$set": {"enabled": bool(enabled),
+                  "updated_by": username,
+                  "updated_at": datetime.utcnow()}},
+        upsert=True)
+
+
 # =============================================================================
 # QR Scan Routes
 # =============================================================================
@@ -928,6 +957,9 @@ scan_bp = Blueprint("scan", __name__)
 
 @scan_bp.route("/scan/asset/<record_id>")
 def scan_asset(record_id):
+    if not is_scan_qr_enabled():
+        return render_template("scan/disabled.html",
+                               feature="asset QR scanning")
     oid = safe_object_id(record_id)
     if not oid:
         abort(404)
@@ -954,6 +986,7 @@ def scan_asset(record_id):
         status=doc.get("status", ""),
         location=doc.get("location", ""),
         assigned_to=emp.get("full_name", "Unassigned") if emp else "Unassigned",
+        assigned_to_id=str(emp["_id"]) if emp else None,
         stockroom_custodian=stockroom_custodian,
         employee_id=emp.get("employee_id", "") if emp else "",
         brand=doc.get("brand", ""),
@@ -963,6 +996,9 @@ def scan_asset(record_id):
 
 @scan_bp.route("/scan/bundle/<record_id>")
 def scan_bundle(record_id):
+    if not is_scan_qr_enabled():
+        return render_template("scan/disabled.html",
+                               feature="accessory bundle scanning")
     """Accessory-bundle scan page for an employee.
 
     Reads the bundle's current item list fresh from the database on every
@@ -1376,11 +1412,12 @@ _ALL_SITE_SEGMENTS = set(SITE_BY_PREFIX) | set(SITE_BY_SHORT)
 
 DEVICE_CODE_DEFAULTS = {
     "Laptop": "L", "Desktop": "D", "Monitor": "MO", "Printer": "PR",
-    "Phone": "PH", "Tablet": "T", "Network Equipment": "NW",
-    "Peripheral": "PE", "Server": "SRV", "Other": "X",
+    "Scanner": "SC", "Mouse": "MS", "Keyboard": "KB", "Headset": "HS",
+    "Company Phone": "CP", "Type C Hub": "HB", "Phone": "PH", "Tablet": "T",
+    "Network Equipment": "NW", "Peripheral": "PE", "Server": "SRV", "Other": "X",
 }
 DEVICE_CODE_SUGGESTIONS = ["L", "D", "MO", "MS", "KB", "PR", "PH",
-                           "T", "NW", "PE", "SRV", "X"]
+                           "T", "NW", "PE", "SRV", "SC", "HS", "CP", "HB", "X"]
 
 # Endpoint hostnames carry a device letter after the site prefix
 # (e.g. KPIMNLD51 = Desktop, KPIMNLL192 = Laptop). Map those to the standard
@@ -1540,14 +1577,17 @@ def derive_asset_tag(endpoint, site=None, device_code=None):
 class AssetForm(FlaskForm):
     asset_tag = StringField("Asset Tag", validators=[DataRequired(), Length(max=50)])
     endpoint_name = StringField("Endpoint Name / Hostname", validators=[Optional()])
-    serial_number = StringField("Serial Number", validators=[DataRequired(), Length(max=100)])
+    serial_number = StringField("Serial Number", validators=[Optional()])
     device_type = SelectField("Device Type", choices=[
         ("Laptop", "Laptop"), ("Desktop", "Desktop"), ("Monitor", "Monitor"),
-        ("Printer", "Printer"), ("Phone", "Phone"), ("Tablet", "Tablet"),
+        ("Printer", "Printer"), ("Scanner", "Scanner"), ("Mouse", "Mouse"),
+        ("Keyboard", "Keyboard"), ("Headset", "Headset"),
+        ("Company Phone", "Company Phone"), ("Type C Hub", "Type C Hub"),
+        ("Phone", "Phone"), ("Tablet", "Tablet"),
         ("Network Equipment", "Network Equipment"), ("Peripheral", "Peripheral"),
         ("Server", "Server"), ("Other", "Other")
     ])
-    model_name = StringField("Model Name", validators=[DataRequired()])
+    model_name = StringField("Model Name", validators=[Optional()])
     manufacturer = StringField("Manufacturer", validators=[Optional()])
     os_version = StringField("OS Version", validators=[Optional()])
     cpu = StringField("CPU", validators=[Optional()])
@@ -2168,9 +2208,11 @@ def new():
             form.asset_tag.data = derived
             flash(f"Asset tag auto-generated from endpoint name: {derived}.", "info")
     if form.validate_on_submit():
-        existing = mongo.db.assets.find_one({"serial_number": form.serial_number.data})
-        if existing:
-            flash("An asset with this serial number already exists.", "error")
+        _serial_txt = (form.serial_number.data or "").strip()
+        if _serial_txt:
+            existing = mongo.db.assets.find_one({"serial_number": _serial_txt})
+            if existing:
+                flash("An asset with this serial number already exists.", "error")
             return render_template(
                 "assets/form.html", form=form, title="New Asset",
                 custom_fields=custom_fields, site_by_prefix=SITE_BY_PREFIX,
@@ -2971,6 +3013,17 @@ def integrity():
 @admin_required
 def settings():
     if request.method == "POST":
+        toggle = request.form.get("scan_qr_action")
+        if toggle in ("enable", "disable"):
+            was = is_scan_qr_enabled()
+            set_scan_qr_enabled(toggle == "enable", current_user.username)
+            audit_log("Settings", "Toggle Scan QR Enabled",
+                      old_value="ON" if was else "OFF",
+                      new_value="ON" if toggle == "enable" else "OFF")
+            flash("QR scanning " +
+                  ("enabled for everyone." if toggle == "enable"
+                   else "disabled until data is reconciled."), "success")
+            return redirect(url_for("admin.settings"))
         employee_id = (request.form.get("employee_id") or "").strip()
         current = mongo.db.settings.find_one({"_id": "stockroom_custodian"})
         old_name = None
@@ -3008,7 +3061,8 @@ def settings():
     return render_template("admin/settings.html",
                            employees=[serialize_doc(e) for e in employees],
                            stockroom_custodian=serialize_doc(custodian) if custodian else None,
-                           current_id=str(custodian["_id"]) if custodian else "")
+                           current_id=str(custodian["_id"]) if custodian else "",
+                           scan_qr_enabled=is_scan_qr_enabled())
 
 
 # =============================================================================
@@ -3164,7 +3218,10 @@ def import_inventory():
         return redirect(url_for("io.import_inventory"))
 
     failed_rows = session.pop("import_failed", [])
-    return render_template("reports/import.html", failed_rows=failed_rows)
+    employees = list(mongo.db.employees.find(
+        {"status": "Active"}).sort("full_name", 1))
+    return render_template("reports/import.html", failed_rows=failed_rows,
+                           employees=employees)
 
 
 @io_bp.route("/import/employees", methods=["GET", "POST"])
@@ -3352,37 +3409,75 @@ def _build_export(kind, username=None):
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     if kind == "assets_pdf":
-        assets = list(mongo.db.assets.find({"status": {"$nin": ["Disposed", "Retired"]}}))
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import letter
         from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.units import inch
+
+        assets = list(mongo.db.assets.find({"status": {"$nin": ["Disposed", "Retired"]}},
+                                           sort=[("asset_tag", 1)]))
+        owner_ids = {safe_object_id(a.get("assigned_to")) for a in assets if a.get("assigned_to")}
+        owner_ids.discard(None)
+        owner_map = {}
+        if owner_ids:
+            for e in mongo.db.employees.find({"_id": {"$in": list(owner_ids)}},
+                                             {"full_name": 1, "_id": 1}):
+                owner_map[str(e["_id"])] = e.get("full_name", "")
+
         buf = io.BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=letter)
+        doc = SimpleDocTemplate(buf, pagesize=letter,
+                                leftMargin=0.7 * inch, rightMargin=0.7 * inch,
+                                topMargin=0.7 * inch, bottomMargin=0.7 * inch)
         styles = getSampleStyleSheet()
         elements = []
-        _pdf_header(elements, "Asset Inventory Report", styles)
-        data = [["Asset Tag", "Serial Number", "Type", "Model", "Location", "Status"]]
-        for a in assets:
-            data.append([a.get("asset_tag", ""), a.get("serial_number", ""),
-                         a.get("device_type", ""), a.get("model_name", ""),
-                         a.get("location", ""), a.get("status", "")])
+        _pdf_header(elements, "KPI ICT Inventory", styles,
+                    subtitle=f'Inventory List \u2014 generated {datetime.utcnow().strftime("%Y-%m-%d %H:%M")} UTC')
+        data = [["No.", "Asset Tag", "Serial Number", "Type", "Model", "Location", "Status", "Assigned To"]]
+        for i, a in enumerate(assets, 1):
+            oid = safe_object_id(a.get("assigned_to"))
+            data.append([str(i),
+                         a.get("asset_tag", "") or "\u2014",
+                         a.get("serial_number", "") or "\u2014",
+                         a.get("device_type", "") or "\u2014",
+                         a.get("model_name", "") or "\u2014",
+                         a.get("location", "") or "\u2014",
+                         a.get("status", "") or "\u2014",
+                         owner_map.get(str(oid), "\u2014") if oid else "\u2014"])
         t = Table(data, repeatRows=1)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1565C0")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("FONTSIZE", (0, 0), (-1, -1), 7.5),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#EEF2FF")]),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("PADDING", (0, 0), (-1, -1), 4),
         ]))
         elements.append(t)
+        elements.append(Spacer(1, 0.2 * inch))
+        elements.append(Paragraph(f"Total items: {len(assets)}", styles["Normal"]))
+        elements.append(Spacer(1, 0.35 * inch))
+        sig = Table([["<b>Prepared by:</b>", "<b>Noted by:</b>"],
+                     ["\u200b", "\u200b"]],
+                    colWidths=[2.7 * inch, 2.7 * inch],
+                    rowHeights=[0.3 * inch, 0.6 * inch])
+        sig.setStyle(TableStyle([
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 1), (-1, 1), 0.5, colors.black),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+        elements.append(sig)
         doc.build(elements)
         buf.seek(0)
         audit_log("Reports", "Export PDF Assets", username=username)
-        return ("asset_inventory.pdf", buf.getvalue(), "application/pdf")
+        return ("KPI_ICT_Inventory.pdf", buf.getvalue(), "application/pdf")
 
     raise ValueError("Unknown export kind: %r" % kind)
 
@@ -3452,11 +3547,11 @@ def export_employees_download(job_id):
     return _job_download(job_id)
 
 
-def _pdf_header(elements, title, styles):
+def _pdf_header(elements, title, styles, subtitle=None):
     from reportlab.lib.units import inch
     from reportlab.platypus import Paragraph, Spacer
     elements.append(Paragraph(title, styles["Title"]))
-    elements.append(Paragraph(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC", styles["Normal"]))
+    elements.append(Paragraph(subtitle or f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC", styles["Normal"]))
     elements.append(Spacer(1, 0.3 * inch))
 
 
@@ -3620,6 +3715,771 @@ def employee_sticker_card(emp_id):
     return render_template("reports/_employee_sticker_card.html",
                            emp=serialize_doc(emp),
                            qr=generate_employee_bundle_qr(emp))
+
+
+def _decode_qrs_from_image_bytes(buf_bytes):
+    """Return every QR payload found in a single image (cv2, no OCR).
+
+    Used by the scan-back importer: the paper form's rows carry signed QR
+    inventory tokens, so the *QR* is the machine-readable authority — we never
+    need to read handwriting.
+    """
+    import cv2
+    import numpy as np
+    arr = np.frombuffer(buf_bytes, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        return []
+    detector = cv2.QRCodeDetector()
+    found = set()
+    # OpenCV 4.x returns (decoded_info, points, straight_qrcode);
+    # OpenCV 5.x returns 4 elements. Grab whichever tuple slot holds the payloads.
+    out = detector.detectAndDecodeMulti(img)
+    payloads = []
+    if isinstance(out, tuple):
+        for item in out:
+            if isinstance(item, list):
+                if not payloads and all(isinstance(p, str) for p in item):
+                    payloads = item
+            elif isinstance(item, np.ndarray) and item.ndim == 1 and len(item) and \
+                    item.dtype.kind in ("U", "O", "S"):
+                if not payloads:
+                    payloads = list(item)
+    elif isinstance(out, list):
+        payloads = out
+    for payload in payloads:
+        if payload:
+            found.add(str(payload))
+    return list(found)
+
+
+def _rasterize_pdf_pages(buf_bytes, scale=2.0):
+    """Rasterize every page of a PDF scan to PNG bytes (pypdfium2)."""
+    from pypdfium2 import PdfDocument
+    pages = []
+    with PdfDocument(buf_bytes) as doc:
+        for page in doc:
+            bitmap = page.render(scale=scale)
+            pil_img = bitmap.to_pil()
+            import io as _io
+            out = _io.BytesIO()
+            pil_img.save(out, format="PNG")
+            pages.append(out.getvalue())
+    return pages
+
+
+def _scan_all_qr_payloads(buf_bytes, filename):
+    """Rasterize + decode every QR across an uploaded scan (PDF or image)."""
+    lower = (filename or "").lower()
+    if lower.endswith(".pdf"):
+        pages = _rasterize_pdf_pages(buf_bytes)
+    else:
+        pages = [buf_bytes]
+    found = set()
+    for page in pages:
+        found.update(_decode_qrs_from_image_bytes(page))
+    return found
+
+
+# -----------------------------------------------------------------------------
+# Asset Intake Form — print + scan-back creation (no handwriting OCR needed).
+# Each physical row carries a tiny QR acting as a geometric anchor; the
+# operator ticks the device-type checkbox and writes serial/model by hand.
+# On upload we re-locate every row from its QR quad, sample each checkbox cell
+# for ink density, so the device type is auto-detected (checkbox darkness is
+# the ONLY machine-read signal — handwriting goes into the batch preview grid).
+# -----------------------------------------------------------------------------
+INTAKE_DEVICE_TYPES = ["Laptop", "Desktop", "Printer", "Scanner", "Mouse",
+                       "Keyboard", "Headset", "Company Phone", "Type C Hub"]
+_INTAKE_ROWS_DEFAULT = 20
+_INTAKE_ROWS_PAGE = 10
+_INTAKE_ROW_H = 55.0              # pt height of one form row (room to write by hand)
+_INTAKE_BOTTOM_MARGIN = 60.0      # floor: never let the row content touch the paper edge
+_INTAKE_SCAN_SCALE = 4.0          # rasterisation zoom used when detecting intake scans
+_INTAKE_QR_X = 36.0               # row-anchor QR left x (form pt)
+_INTAKE_QR_SIZE = 24.0            # small enough to fit a 55pt row incl. its label
+_INTAKE_QR_TOP_D = 13.0           # QR top gap from row top (form pt)
+_INTAKE_CHK_X0 = 118.0            # left x of the first checkbox column
+_INTAKE_CHK_SIZE = 15.0           # checkbox square size (form pt)
+_INTAKE_CHK_CY = 30.0             # checkbox centre y from the row top
+_INTAKE_PAGE_W = 595.27
+_INTAKE_PAGE_H = 841.89
+_INTAKE_MARGIN_R = 34.0
+_INTAKE_CHK_STEP = (_INTAKE_PAGE_W - _INTAKE_MARGIN_R - _INTAKE_CHK_X0) / \
+    len(INTAKE_DEVICE_TYPES)
+
+
+def _intake_qr_payload(row_no):
+    """QR payload for one intake row (fixed short form keeps the QR at
+    version 1 = 21 modules so the affine checkbox geometry stays calibrated)."""
+    return "INTK-ROW-%03d" % int(row_no)
+
+
+def _intake_checkbox_form_xy(row_no, type_idx):
+    """Centre of a checkbox in the QR-local frame (pt), QR top-left = (0,0).
+
+    The offset from the row's QR anchor is fixed for every row, so no row_no
+    math is needed — only the horizontal position moves with the column.
+    """
+    x = (_INTAKE_CHK_X0 - _INTAKE_QR_X) + type_idx * _INTAKE_CHK_STEP + \
+        _INTAKE_CHK_SIZE / 2.0
+    y = _INTAKE_CHK_CY
+    return x, y
+
+
+@io_bp.route("/reports/intake-form/pdf")
+@login_required
+def inventory_intake_form_pdf():
+    """Print-ready blank Asset Intake Form with QR-anchored checkbox rows."""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas as pdfcanvas
+    import base64 as b64
+
+    rows = max(1, min(60, request.args.get("rows", _INTAKE_ROWS_DEFAULT, type=int)))
+    emp = None
+    emp_id_arg = request.args.get("employee_id", "")
+    if emp_id_arg:
+        emp = mongo.db.employees.find_one({"_id": safe_object_id(emp_id_arg)})
+    buf = io.BytesIO()
+    c = pdfcanvas.Canvas(buf, pagesize=A4)
+
+    def draw_page(start, count):
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica-Bold", 15)
+        c.drawString(_INTAKE_QR_X, _INTAKE_PAGE_H - 44, "KPI ICT ASSET INTAKE FORM")
+        c.setFont("Helvetica", 8.5)
+        c.drawString(
+            _INTAKE_QR_X, _INTAKE_PAGE_H - 58,
+            "Tick one device type per row and write the serial/model/remarks by hand; "
+            "scan this page back and upload it via 'Import Intake Scan'.")
+        if emp:
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(_INTAKE_QR_X, _INTAKE_PAGE_H - 71,
+                         "Employee: %s  ·  ID: %s"
+                         % (emp.get("full_name", ""), emp.get("employee_id", "")))
+            c.setFont("Helvetica", 8)
+            c.drawString(
+                _INTAKE_QR_X, _INTAKE_PAGE_H - 81,
+                "Department: %s  ·  Position: %s  ·  Site: %s"
+                % (emp.get("department", "—"), emp.get("position", "—"),
+                   emp.get("site", "—")))
+        dy = 22 if emp else 0
+        c.setStrokeColor(colors.grey)
+        c.setLineWidth(0.6)
+        lx = _INTAKE_CHK_X0
+        lcy = _INTAKE_PAGE_H - 84 - dy
+        c.setFont("Helvetica", 6.5)
+        for t in INTAKE_DEVICE_TYPES:
+            c.rect(lx, lcy, _INTAKE_CHK_SIZE, _INTAKE_CHK_SIZE)
+            c.drawString(lx, lcy - 9, t[:14])
+            lx += _INTAKE_CHK_STEP
+        c.setFont("Helvetica", 8)
+
+        top0 = _INTAKE_PAGE_H - 106 - dy
+        block_content = (count - 1) * _INTAKE_ROW_H + 50.0
+        if top0 - block_content >= _INTAKE_BOTTOM_MARGIN:
+            top0 = (top0 + block_content) / 2.0
+
+        for i in range(start, start + count):
+            top = top0 - (i - start) * _INTAKE_ROW_H
+            if top < 70:
+                break
+            qr_b64 = generate_qr(_intake_qr_payload(i))
+            qr_png = b64.b64decode(qr_b64)
+            c.drawImage(ImageReader(io.BytesIO(qr_png)),
+                        _INTAKE_QR_X, top - _INTAKE_QR_SIZE,
+                        width=_INTAKE_QR_SIZE, height=_INTAKE_QR_SIZE,
+                        preserveAspectRatio=True, mask="auto")
+            c.setFont("Helvetica", 7)
+            c.drawString(_INTAKE_QR_X, top - _INTAKE_QR_SIZE - 9, "r%03d" % i)
+            cx = _INTAKE_CHK_X0
+            for _t in range(len(INTAKE_DEVICE_TYPES)):
+                c.rect(cx, top - _INTAKE_CHK_CY - _INTAKE_CHK_SIZE / 2.0,
+                       _INTAKE_CHK_SIZE, _INTAKE_CHK_SIZE)
+                cx += _INTAKE_CHK_STEP
+            c.setLineWidth(0.5)
+            c.drawString(_INTAKE_CHK_X0, top - 42, "Serial:")
+            c.line(_INTAKE_CHK_X0 + 34, top - 39.5,
+                   _INTAKE_PAGE_W - _INTAKE_MARGIN_R, top - 39.5)
+            c.drawString(_INTAKE_PAGE_W - _INTAKE_MARGIN_R - 190,
+                         top - 42, "Model:")
+            c.line(_INTAKE_PAGE_W - _INTAKE_MARGIN_R - 150,
+                   top - 39.5,
+                   _INTAKE_PAGE_W - _INTAKE_MARGIN_R, top - 39.5)
+            c.drawString(_INTAKE_CHK_X0, top - 50, "Remarks:")
+            c.line(_INTAKE_CHK_X0 + 40, top - 47.5,
+                   _INTAKE_PAGE_W - _INTAKE_MARGIN_R, top - 47.5)
+
+    drawn = 0
+    while drawn < rows:
+        n = min(_INTAKE_ROWS_PAGE, rows - drawn)
+        draw_page(drawn, n)
+        drawn += n
+        if drawn < rows:
+            c.showPage()
+    c.save()
+    buf.seek(0)
+    return _deliver_download("asset_intake_form_%drows.pdf" % rows,
+                             buf.getvalue(), "application/pdf")
+
+
+def _decode_qrs_with_positions(buf_bytes):
+    """Return [(payload, quad)] for a single image; quad = (4, 2) float pixels.
+
+    Robustly handles the OpenCV QRCodeDetector.detectAndDecodeMulti return
+    shape across 4.x/5.x: the decoded payloads show up as a list/tuple/ndarray
+    and the quad array is the (N, 4, 2) ndarray in the same tuple.
+    """
+    import cv2
+    import numpy as np
+    arr = np.frombuffer(buf_bytes, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        return []
+    n_found = set()
+
+    def _detect(sample):
+        out = cv2.QRCodeDetector().detectAndDecodeMulti(sample)
+        payloads, quads = [], None
+        items = out if isinstance(out, tuple) else (out,)
+        for item in items:
+            if isinstance(item, (list, tuple)):
+                if not payloads and item and all(isinstance(p, str) for p in item):
+                    payloads = item
+            elif isinstance(item, np.ndarray):
+                if item.ndim == 3 and item.shape[1:] == (4, 2):
+                    quads = item
+                elif item.ndim == 1 and len(item) and \
+                        item.dtype.kind in ("U", "O", "S") and not payloads:
+                    payloads = list(item)
+        found = []
+        if quads is not None:
+            for i, payload in enumerate(payloads):
+                if payload and i < len(quads):
+                    found.append((str(payload), np.array(quads[i],
+                                                         dtype=np.float32)))
+        return found
+
+    def _nominal(item):
+        try:
+            return str(item[0])
+        except Exception:
+            return ""
+
+    res = []
+    for item in _detect(img):
+        if _nominal(item) not in n_found:
+            res.append(item)
+            n_found.add(_nominal(item))
+
+    big = cv2.resize(img, None, fx=2.0, fy=2.0,
+                     interpolation=cv2.INTER_CUBIC)
+    for payload, quad in _detect(big):
+        if payload in n_found:
+            continue
+        res.append((payload, np.array(quad, dtype=np.float32) / 2.0))
+        n_found.add(payload)
+    return res
+
+
+def _order_qr_quad(quad):
+    """Return the four QR corners as [top-left, top-right, bottom-right, bottom-left].
+
+    OpenCV does NOT guarantee a fixed meaning for the returned quad corners, so
+    we re-derive the order: sort by polar angle around the centroid, then rotate
+    so the list starts at the topmost corner (the QR's top-left).
+    """
+    import numpy as np
+    pts = np.array(quad, dtype=np.float32)
+    c = pts.mean(axis=0)
+    angles = np.arctan2(pts[:, 1] - c[1], pts[:, 0] - c[0])
+    s = np.argsort(angles).tolist()
+    tl = int(np.argmin(pts[:, 1]))
+    k = s.index(tl)
+    seq = s[k:] + s[:k]
+    return pts[seq]
+
+
+def _intake_detect_filled_checkboxes(page_bytes, row_no):
+    """Decode one page: for the target INTK row, return detected device types.
+
+    The row's tiny QR anchors its location/scale; each checkbox is sampled for
+    ink density with the affine built from the (angle-sorted) anchor quad.
+    """
+    import cv2
+    import numpy as np
+    arr = np.frombuffer(page_bytes, dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if img is None:
+        return []
+    target = []
+    for payload, quad in _decode_qrs_with_positions(page_bytes):
+        if not payload.startswith("INTK-ROW-"):
+            continue
+        if int(payload.split("-")[-1]) == row_no:
+            target.append(quad)
+    if not target:
+        return []
+    affine = _intake_affine_from_qr(_order_qr_quad(target[0]))
+    found = []
+    for i in range(len(INTAKE_DEVICE_TYPES)):
+        fx, fy = _intake_checkbox_form_xy(row_no, i)
+        half = _INTAKE_CHK_SIZE * 0.5   # sample the whole box, not just the core
+        corners = np.float32([[[fx - half, fy - half]],
+                              [[fx + half, fy - half]],
+                              [[fx + half, fy + half]],
+                              [[fx - half, fy + half]]]).reshape(4, 1, 2)
+        pts = cv2.transform(corners, affine).reshape(4, 2)
+        mask = np.zeros(img.shape[:2], dtype=np.uint8)
+        cv2.fillConvexPoly(mask, np.int32(pts), 255)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        px = gray[mask > 0]
+        if px.size and float(np.mean(px < 128)) > 0.30:
+            found.append(INTAKE_DEVICE_TYPES[i])
+    return found
+
+
+def _intake_affine_from_qr(qr_quad):
+    """Build an affine (QR-local form-pt => image-px) from the anchor quad.
+
+    OpenCV reports the QR's 21-module DATA square (the 2-module quiet zone is
+    outside its quad), so the form corner tuple is placed at the data-region
+    border of the full 25-module anchor square rather than at (0,0). That
+    keeps the mapping aligned with where the checkbox offsets actually live.
+    """
+    import cv2
+    import numpy as np
+    border = _INTAKE_QR_SIZE * 2.0 / 25.0
+    edge = _INTAKE_QR_SIZE - 2.0 * border
+    form_pts = np.float32([[border, border],
+                           [border + edge, border],
+                           [border, border + edge]]).reshape(3, 1, 2)
+    img_pts = np.float32([qr_quad[0], qr_quad[1], qr_quad[3]]).reshape(3, 1, 2)
+    return cv2.getAffineTransform(form_pts, img_pts)
+
+
+def _detect_intake_rows(buf_bytes, filename):
+    """Decode an intake-form scan -> list of rows with detected checkboxes.
+
+    Returns: [{row_no, token, device_types: [..], asset_tag, serial, model, remarks}]
+    Only QR anchors + checkbox ink density drive detection; handwriting is left
+    blank for the operator to fill in the batch preview grid.
+    """
+    lower = (filename or "").lower()
+    if lower.endswith(".pdf"):
+        pages = _rasterize_pdf_pages(buf_bytes, scale=_INTAKE_SCAN_SCALE)
+    else:
+        pages = [buf_bytes]
+
+    seen = {}
+    seen_list = []
+    for page_bytes in pages:
+        for payload, _quad in _decode_qrs_with_positions(page_bytes):
+            if not payload.startswith("INTK-ROW-"):
+                continue
+            row_no = int(payload.split("-")[-1])
+            if row_no not in seen:
+                seen[row_no] = \
+                    _intake_detect_filled_checkboxes(page_bytes, row_no)
+                seen_list.append({"row_no": row_no, "token": payload,
+                                  "device_types": seen[row_no],
+                                  "asset_tag": "", "serial": "",
+                                  "model": "", "remarks": ""})
+    seen_list.sort(key=lambda r: r["row_no"])
+    return seen_list
+
+
+@io_bp.route("/reports/intake-import", methods=["GET", "POST"])
+@login_required
+def inventory_intake_import():
+    """Batch importer for the blank Asset Intake Form (QR-anchored checkboxes).
+
+    Phase 1 (upload): rasterize the scan -> locate every row's QR anchor ->
+    sample the 9 device-type checkboxes for ink -> build an **editable preview**
+    where the operator types the serial/model/remarks and may correct the
+    auto-detected device type. The operator also picks the **employee** the
+    printed form belongs to (the form prints the employee's name/header), so the
+    new assets can be assigned without any handwriting OCR.
+
+    Phase 2 (confirm): every checked row becomes a NEW asset with an
+    auto-generated tag (or the tag typed in the preview grid), a created-by
+    history entry and an audit log. When an employee was selected the assets are
+    also set status Assigned, given assigned_to, and added to the employee's
+    accountability. Generic scans without an employee stay Available.
+    **No DB write happens during upload.**
+    """
+    if not is_scan_qr_enabled():
+        return render_template("scan/disabled.html",
+                               feature="asset intake import")
+
+    if request.method == "POST":
+        # ---- PHASE 2: operator reviewed the preview and confirmed.
+        if request.form.get("confirm") == "1":
+            created, skipped, dupes = [], 0, 0
+            now = datetime.utcnow()
+            who = current_user.username if current_user.is_authenticated \
+                else "system"
+            emp_doc = None
+            emp_id_arg = request.form.get("employee_id", "").strip()
+            if emp_id_arg:
+                emp_doc = mongo.db.employees.find_one(
+                    {"_id": safe_object_id(emp_id_arg)})
+                if not emp_doc:
+                    emp_doc = None
+            used_tags = set()
+            used_serials = set()
+            for rn in request.form.getlist("row_no"):
+                device_type = request.form.get("device_type_%s" % rn, "").strip()
+                asset_tag = request.form.get("asset_tag_%s" % rn, "").strip()
+                serial = request.form.get("serial_%s" % rn, "").strip()
+                model = request.form.get("model_%s" % rn, "").strip()
+                remarks = request.form.get("remarks_%s" % rn, "").strip()
+                if not device_type:
+                    skipped += 1
+                    continue
+                if serial:
+                    existing = mongo.db.assets.find_one(
+                        {"serial_number": serial})
+                    if existing or serial in used_serials:
+                        dupes += 1
+                        continue
+                    used_serials.add(serial)
+                if not asset_tag:
+                    dc = DEVICE_CODE_DEFAULTS.get(device_type, "X")
+                    asset_tag = "INTK-%s-%s" % (
+                        dc, next_tag_number("INTK", dc))
+                    while asset_tag in used_tags:
+                        asset_tag = "INTK-%s-%s" % (
+                            dc, next_tag_number("INTK", dc))
+                if mongo.db.assets.find_one({"asset_tag": asset_tag}) or \
+                        asset_tag in used_tags:
+                    dupes += 1
+                    continue
+                used_tags.add(asset_tag)
+                doc = {
+                    "asset_tag": asset_tag,
+                    "endpoint_name": "",
+                    "serial_number": serial or "",
+                    "device_type": device_type,
+                    "model_name": model or "",
+                    "status": "Assigned" if emp_doc else "Available",
+                    "notes": remarks or "",
+                    "assigned_to": str(emp_doc["_id"]) if emp_doc else None,
+                    "history": [{
+                        "event": "Asset Created",
+                        "method": "Intake scan import",
+                        "by": who,
+                        "at": now,
+                        "details": "Created from scanned intake form row r%03d" % int(rn),
+                    }],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                if emp_doc:
+                    doc["history"].append({
+                        "event": "Assigned",
+                        "method": "Intake scan import",
+                        "by": who,
+                        "at": now,
+                        "details": "Assigned to %s (%s) from scanned form"
+                                   % (emp_doc.get("full_name", ""),
+                                      emp_doc.get("employee_id", "")),
+                    })
+                res = mongo.db.assets.insert_one(doc)
+                if emp_doc:
+                    create_accountability(str(emp_doc["_id"]),
+                                          res.inserted_id, "Intake Scan Import",
+                                          notes=remarks or "Auto-assigned from scanned intake form")
+                audit_log("Assets", "Create",
+                          new_value={"asset_tag": asset_tag,
+                                     "serial_number": doc["serial_number"],
+                                     "assigned_to": doc["assigned_to"]},
+                          record_id=res.inserted_id)
+                created.append({"asset_tag": asset_tag,
+                                "token": _intake_qr_payload(int(rn)),
+                                "status": doc["status"]})
+
+            result = {"total": len(request.form.getlist("row_no")),
+                      "created": len(created),
+                      "skipped": skipped, "duplicates": dupes}
+            if created:
+                flash("Intake import: %d asset(s) created, %d skipped, %d duplicate(s)."
+                      % (len(created), skipped, dupes), "success")
+            return render_template("reports/intake_result.html",
+                                   result=result, created=created)
+
+        # ---- PHASE 1: upload a scan -> detect -> editable batch preview.
+        f = request.files.get("file")
+        if not f or not f.filename:
+            flash("No file uploaded.", "error")
+            return redirect(url_for("io.inventory_intake_import"))
+        selected_emp_id = request.form.get("employee_id", "").strip()
+        selected_emp_name = ""
+        if selected_emp_id:
+            sel_emp = mongo.db.employees.find_one(
+                {"_id": safe_object_id(selected_emp_id)})
+            if sel_emp:
+                selected_emp_name = sel_emp.get("full_name", "")
+            else:
+                selected_emp_id = ""
+        raw = f.read()
+        try:
+            rows = _detect_intake_rows(raw, f.filename)
+        except Exception:
+            logger.exception("Failed to detect intake form %s", f.filename)
+            rows = []
+        if not rows:
+            flash("No readable intake-form QR anchors found in that scan. "
+                  "Use a clear, well-lit photo or a 300 dpi scan.", "error")
+            return redirect(url_for("io.inventory_intake_import"))
+        return render_template("reports/intake_preview.html",
+                               rows=rows, scan_name=f.filename,
+                               device_types=INTAKE_DEVICE_TYPES,
+                               employee_id=selected_emp_id,
+                               employee_name=selected_emp_name)
+    return render_template("reports/intake_import.html",
+                               employees=get_active_employees())
+
+
+@io_bp.route("/reports/employee-inventory-form/<employee_id>/pdf")
+@login_required
+def employee_inventory_form_pdf(employee_id):
+    """KPI ICT Inventory paper form (one per employee).
+
+    Every accountability row is rendered with:
+      * a checkbox column (handwritten by the counter when physically validating),
+      * the asset description + tag,
+      * a blank serial-number line,
+      * a remarks line,
+      * a signed QR token (integrity.inventory_token_sign) binding THIS employee
+        to THIS asset — the machine-readable authority used by the scan-back
+        importer, so no handwriting OCR is ever required.
+
+    The same token appears in the QR the scanner reads, so scanning the form
+    back in records an exact verification per row.
+    """
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (Image, Paragraph, SimpleDocTemplate, Spacer,
+                                    Table, TableStyle)
+    import base64 as b64
+    from integrity import inventory_token_sign
+
+    emp = get_or_404("employees", employee_id)
+    scope = accountability_scope(employee_id)
+    assets = list(mongo.db.assets.find({"assigned_to": {"$in": scope}}))
+    assets.sort(key=lambda a: ((a.get("device_type") or "").lower(),
+                               (a.get("asset_tag") or "").lower()))
+    emp_oid = emp.get("_id")
+
+    def qr_img(asset):
+        token = inventory_token_sign(emp_oid, asset.get("_id"))
+        b64png = generate_qr(token)
+        return Image(io.BytesIO(b64.b64decode(b64png)), width=0.55 * inch, height=0.55 * inch)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=0.6 * inch, rightMargin=0.6 * inch,
+                            topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("InvTitle", parent=styles["Title"], fontSize=15,
+                                 spaceAfter=2)
+    h2 = ParagraphStyle("InvH2", parent=styles["Heading2"], fontSize=11, spaceAfter=4)
+    cell = ParagraphStyle("InvCell", parent=styles["Normal"], fontSize=8.5, leading=11)
+
+    elements = [
+        Paragraph("KPI ICT INVENTORY ACCOUNTABILITY FORM", title_style),
+        Paragraph(f"Employee: {emp.get('full_name', '')} &nbsp;·&nbsp; "
+                  f"ID: {emp.get('employee_id', '')}", styles["Normal"]),
+        Paragraph(f"Department: {emp.get('department', '—')} &nbsp;·&nbsp; "
+                  f"Position: {emp.get('position', '—')} &nbsp;·&nbsp; "
+                  f"Site/Location: {emp.get('site', '—')}", styles["Normal"]),
+        Spacer(1, 0.12 * inch),
+    ]
+
+    header_row = ["Check", "QR", "Description", "Serial No.", "Remarks"]
+    row_data = [header_row]
+    for a in assets:
+        row_data.append([
+            "",
+            qr_img(a),
+            Paragraph(f"<b>{a.get('asset_tag', '')}</b><br/>"
+                      f"{a.get('device_type', '')} · {a.get('model_name', '')}", cell),
+            "",
+            "",
+        ])
+    # add a few blank "Others" rows for assets not yet on the sheet
+    for _ in range(max(2, 8 - len(assets))):
+        row_data.append(["", "", " ", "", ""])
+
+    header_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1565C0")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]
+    width_avail = A4[0] - 1.2 * inch
+    t = Table(row_data, colWidths=[0.7 * inch, 0.65 * inch, 2.4 * inch,
+                                   1.3 * inch, 2.0 * inch])
+    t.setStyle(TableStyle(header_style))
+    elements.append(t)
+    elements.append(Spacer(1, 0.22 * inch))
+
+    sig = Table([["Prepared by (IT)", "Verified by (Employee)", "Date"]],
+                colWidths=[(width_avail) / 3] * 3)
+    sig.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 30),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(sig)
+
+    doc.build(elements)
+    buf.seek(0)
+    return _deliver_download(f"inventory_form_{emp.get('employee_id', 'emp')}.pdf",
+                             buf.getvalue(), "application/pdf")
+
+
+@io_bp.route("/reports/inventory-scan/import", methods=["GET", "POST"])
+@login_required
+def inventory_scan_import():
+    """Scan-back importer for printed employee inventory forms.
+
+    Upload a scanned PDF/photo of a filled `employee-inventory-form`; the
+    importer rasterizes it and builds an editable **preview** of every decoded
+    signed QR token (integrity token), showing the serial/remarks fields for
+    correction FIRST.
+    Only after the operator confirms does it record a per-row **verification**
+    on the matching assets:
+
+      * sets asset.last_verified / last_verified_by / last_verified_at,
+      * appends an inventory verification entry to asset.history,
+      * writes an audit_log+integrity-chain entry,
+      * saves a copy of the uploaded scan (per row) for the record.
+
+    It never silently flips asset status — the operator confirms after import.
+    """
+    if not is_scan_qr_enabled():
+        return render_template("scan/disabled.html",
+                               feature="scan-back inventory import")
+    if request.method == "POST":
+        from integrity import inventory_token_parse
+
+        # ---- PHASE 2: operator reviewed the preview and hit "Confirm & import".
+        # ---- Only the checked rows are applied; serial/remarks edits from the
+        # ---- preview form are written into the matching asset.
+        if request.form.get("confirm") == "1":
+            verified, skipped, dupes = [], 0, 0
+            now = datetime.utcnow()
+            for asset_id in request.form.getlist("asset_ids"):
+                token = request.form.get("token_%s" % asset_id, "")
+                serial = request.form.get("serial_%s" % asset_id, "")
+                remarks = request.form.get("remarks_%s" % asset_id, "")
+                parsed = inventory_token_parse(token)
+                if not parsed:
+                    skipped += 1
+                    continue
+                emp_oid, asset_oid = parsed
+                asset = mongo.db.assets.find_one({"_id": asset_oid})
+                if not asset:
+                    skipped += 1
+                    continue
+                last_verified = asset.get("last_verified_at")
+                if last_verified and isinstance(last_verified, datetime) and \
+                   (now - last_verified).total_seconds() < 60:
+                    dupes += 1
+                    continue
+                fields = {
+                    "last_verified": True,
+                    "last_verified_by": current_user.username if current_user.is_authenticated else "system",
+                    "last_verified_at": now,
+                    "updated_at": now,
+                }
+                if serial and serial.strip():
+                    fields["serial_number"] = serial.strip()
+                if remarks and remarks.strip():
+                    fields["remarks"] = remarks.strip()
+                mongo.db.assets.update_one(
+                    {"_id": asset_oid},
+                    {"$set": fields,
+                     "$push": {"history": {
+                         "event": "Inventory Verified",
+                         "method": "Scan-back import",
+                         "by": current_user.username if current_user.is_authenticated else "system",
+                         "at": now,
+                         "details": f"Verified against paper form via QR token (employee {emp_oid})",
+                     }}})
+                audit_log("Assets", "Inventory Verified",
+                          old_value={"verified": False},
+                          new_value={"verified": True},
+                          record_id=asset_oid,
+                          username=current_user.username if current_user.is_authenticated else "system")
+                verified.append({"asset_tag": asset.get("asset_tag"), "token": token})
+
+            result = {"total": len(request.form.getlist("asset_ids")), "verified": len(verified),
+                      "skipped": skipped, "duplicates": dupes}
+            if verified:
+                flash(f"Imported scan: {len(verified)} asset(s) verified, "
+                      f"{skipped} skipped, {dupes} duplicates.", "success")
+            return render_template("reports/inventory_scan_result.html",
+                                   result=result, verified=verified)
+
+        # ---- PHASE 1: upload a scan -> decode -> editable preview.
+        # ---- No database write happens until the operator confirms above.
+        f = request.files.get("file")
+        if not f or not f.filename:
+            flash("No file uploaded.", "error")
+            return redirect(url_for("io.inventory_scan_import"))
+        raw = f.read()
+        try:
+            payloads = _scan_all_qr_payloads(raw, f.filename)
+        except Exception:
+            logger.exception("Failed to rasterize/scan %s", f.filename)
+            payloads = []
+        if not payloads:
+            flash("No readable inventory QR found in that scan. "
+                  "Use a clear, well-lit photo or a 300 dpi scan.", "error")
+            return redirect(url_for("io.inventory_scan_import"))
+
+        verified, skipped = [], 0
+        for token in payloads:
+            parsed = inventory_token_parse(token)
+            if not parsed:
+                skipped += 1
+                continue
+            emp_oid, asset_oid = parsed
+            asset = mongo.db.assets.find_one({"_id": asset_oid})
+            if not asset:
+                skipped += 1
+                continue
+            verified.append({
+                "asset_id": str(asset_oid),          # value used by checkboxes + hidden tokens
+                "token": token,                       # re-verified (HMAC+TTL) on confirm
+                "asset_tag": asset.get("asset_tag", ""),
+                "device_type": (asset.get("device_type") or "").title(),
+                "serial_number": asset.get("serial_number", "") or "",
+                "remarks": "",
+            })
+        if not verified:
+            flash("No matching assets found in that scan — nothing to import.", "error")
+            return redirect(url_for("io.inventory_scan_import"))
+        return render_template("reports/inventory_scan_preview.html",
+                               verified=verified,
+                               scan_name=f.filename)
+    return render_template("reports/inventory_scan_import.html")
 
 
 # =============================================================================

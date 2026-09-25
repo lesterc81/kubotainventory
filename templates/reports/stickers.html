@@ -17,11 +17,11 @@
     border: 2px solid #17120E;
     border-radius: 8px;
     padding: 10px;
-    width: 180px;
+    width: 150px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
     text-align: center;
     page-break-inside: avoid;
     break-inside: avoid;
@@ -31,18 +31,14 @@
     content: '';
     position: absolute;
     top: 0; left: 4px;
-    width: 100px; height: 3px;
+    width: 80px; height: 3px;
     background: #EAB308;
     clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 100%, 0 100%);
   }
-  .sticker-card img { width: 110px; height: 110px; display: block; margin-top: 4px; }
+  .sticker-card img { width: 80px; height: 80px; display: block; margin-top: 4px; }
   .sticker-tag { font-weight: 800; font-size: 14px; letter-spacing: 0.04em; color: #881337; }
-  .sticker-site { font-size: 9px; color: #6B6258; text-transform: uppercase; letter-spacing: .05em; margin-top: -3px; }
-  .sticker-sn { font-size: 10px; color: #6B6258; font-family: 'JetBrains Mono', monospace; }
   .sticker-type { font-size: 11px; color: #17120E; }
-  .sticker-model { font-size: 11px; color: #17120E; }
   .sticker-loc { font-size: 10px; color: #6B6258; border-top: 1px solid #DED5CC; padding-top: 4px; width: 100%; }
-  .sticker-logo { font-size: 9px; color: #9C9388; margin-top: 2px; }
   @media print {
     .no-print { display: none !important; }
     body { margin: 0; }
@@ -63,16 +59,10 @@
   <div class="sticker-card">
     <img src="data:image/png;base64,{{ s.qr }}" alt="QR">
     <div class="sticker-tag">{{ s.asset.asset_tag }}</div>
-    {% if s.asset.asset_tag|site_from_tag %}
-    <div class="sticker-site">{{ s.asset.asset_tag|site_from_tag }}</div>
-    {% endif %}
-    <div class="sticker-type">{{ s.asset.device_type }}</div>
-    <div class="sticker-model">{{ s.asset.model_name }}</div>
-    <div class="sticker-sn">S/N: {{ s.asset.serial_number }}</div>
-    {% if s.asset.location %}
-    <div class="sticker-loc">{{ s.asset.location }}</div>
-    {% endif %}
-    <div class="sticker-logo">IT Asset System</div>
+    {% if s.asset.device_type %}<div class="sticker-type">{{ s.asset.device_type }}</div>{% endif %}
+    {% set a_site = (s.asset.asset_tag|site_from_tag) or s.asset.location %}
+    {% if a_site %}<div class="sticker-loc">{{ a_site }}</div>{% endif %}
+    <div class="sticker-logo">ICT Inventory</div>
   </div>
   {% endfor %}
 </div>

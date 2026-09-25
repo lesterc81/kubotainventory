@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Intake Scan Preview — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Intake Scan Preview</h1>
+    <p>{{ rows|length }} row(s) detected — review device type &amp; fill serial/model before creating</p>
+  </div>
+  <div class="page-header-right">
+    <span class="badge badge-neutral">{{ scan_name }}</span>
+  </div>
+</div>
+
+<form method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="confirm" value="1">
+  <input type="hidden" name="employee_id" value="{{ employee_id or '' }}">
+
+  {% if employee_id %}
+  <div class="card mb-3" style="background:var(--info-bg,#e8f1fb);border:1px solid var(--info,#4d6fa8)">
+    <div class="card-body" style="display:flex;align-items:center;gap:10px;padding:14px 24px">
+      <span class="material-icons-round" style="color:var(--info,#4d6fa8)">person</span>
+      <div>
+        <strong>Assigned employee:</strong> {{ employee_name or "Selected employee" }}
+        <span class="text-muted" style="font-size:12px;display:block">
+          Confirmed rows will be created as <b>Assigned</b> to this employee.
+        </span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not rows %}
+  <div class="empty-state" style="padding:32px">
+    <span class="material-icons-round">qr_code_2</span>
+    <h3>No readable rows found</h3>
+    <p>Use a clear, well-lit photo or a 300 dpi scan of the filled form.</p>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span class="material-icons-round">fact_check</span> Review each detected row</div>
+      <label style="font-size:12px;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="checkAll" checked> Select all
+      </label>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:44px"></th>
+              <th>Row</th>
+              <th>Device Type</th>
+              <th>Asset Tag</th>
+              <th>Serial Number</th>
+              <th>Model</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td><input type="checkbox" class="row-check" name="row_no"
+                         value="{{ r.row_no }}" checked></td>
+              <td>
+                <span class="text-mono" style="font-weight:600">r%03d</span>
+                <span class="text-muted" style="font-size:11px;display:block">{{ r.token }}</span>
+              </td>
+              <td>
+                <select name="device_type_{{ r.row_no }}" class="form-control"
+                        style="min-width:160px">
+                  {% for t in device_types %}
+                  <option value="{{ t }}" {% if r.device_types and r.device_types[0] == t %}selected{% endif %}>{{ t }}</option>
+                  {% endfor %}
+                </select>
+                {% if r.device_types|length > 1 %}
+                <span class="form-hint">detected: {{ r.device_types|join(", ") }}</span>
+                {% endif %}
+              </td>
+              <td><input type="text" name="asset_tag_{{ r.row_no }}"
+                         value="{{ r.asset_tag }}" class="form-control"
+                         style="min-width:140px" placeholder="(auto)"></td>
+              <td><input type="text" name="serial_{{ r.row_no }}"
+                         value="{{ r.serial }}" class="form-control"
+                         style="min-width:140px" placeholder="—"></td>
+              <td><input type="text" name="model_{{ r.row_no }}"
+                         value="{{ r.model }}" class="form-control"
+                         style="min-width:140px" placeholder="(optional)"></td>
+              <td><input type="text" name="remarks_{{ r.row_no }}"
+                         value="{{ r.remarks }}" class="form-control"
+                         style="min-width:150px" placeholder="(optional)"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer" style="display:flex;justify-content:flex-end;gap:10px">
+      <a href="{{ url_for('io.inventory_intake_import') }}" class="btn btn-outline">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        <span class="material-icons-round">add_circle</span> Confirm &amp; create {{ rows|length }} asset(s)
+      </button>
+    </div>
+  {% endif %}
+</form>
+
+<script>
+(function () {
+  var checkAll = document.getElementById('checkAll');
+  var rows = document.querySelectorAll('.row-check');
+  if (checkAll) {
+    checkAll.addEventListener('change', function () {
+      rows.forEach(function (r) { r.checked = checkAll.checked; });
+    });
+  }
+  rows.forEach(function (r) {
+    r.addEventListener('change', function () {
+      checkAll.checked = rows.length > 0 && Array.prototype.every.call(rows, function (c) { return c.checked; });
+    });
+  });
+})();
+</script>
+{% endblock %}

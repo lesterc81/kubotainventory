@@ -53,6 +53,8 @@
       font-size: 13px;
       opacity: .85;
     }
+    .card-header a.name-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+    .card-header a.name-link:hover { opacity: .8; }
     .card-header .type-badge {
       display: inline-block;
       margin-top: 10px;
@@ -146,10 +148,14 @@
   <div class="card">
     <div class="card-header">
       <div class="icon material-icons-round">view_module</div>
-      <h1>{{ emp.full_name }}</h1>
+      <h1><a class="name-link" href="{{ url_for('scan.scan_bundle', record_id=emp.id) }}">{{ emp.full_name }}</a></h1>
       <div class="emp-id">{{ emp.employee_id }}</div>
       {% if primary_emp %}
+      {% if primary_emp.id != emp.id %}
+      <div class="emp-id" style="margin-top:4px">Accountable Officer: <a class="name-link" href="{{ url_for('scan.scan_bundle', record_id=primary_emp.id) }}">{{ primary_emp.full_name }}</a></div>
+      {% else %}
       <div class="emp-id" style="margin-top:4px">Accountable Officer: {{ primary_emp.full_name }}</div>
+      {% endif %}
       {% endif %}
       <span class="type-badge">Accessory Bundle</span>
       {% if emp.status != 'Active' %}
@@ -159,7 +165,7 @@
 
     {% if emp.status != 'Active' %}
     <div style="background:#FBF3EA;border-bottom:1px solid #F0DCC0;color:#7A4E0F;padding:12px 24px;font-size:13px">
-      This bundle belongs to <strong>{{ emp.full_name }}</strong>, whose status is <strong>{{ emp.status }}</strong>.
+      This bundle belongs to <strong><a href="{{ url_for('scan.scan_bundle', record_id=emp.id) }}" style="color:#7A4E0F">{{ emp.full_name }}</a></strong>, whose status is <strong>{{ emp.status }}</strong>.
       {% if total == 0 %}
       No items are attributed to them — the equipment was likely retrieved. Scan the Asset QR on the unit or check Inventory for the current device.
       {% endif %}

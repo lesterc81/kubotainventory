@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Scan Import Result — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Scan Import Result</h1>
+    <p>Rows verified from your uploaded inventory-scan photo/PDF</p>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-outline" href="{{ url_for('io.inventory_scan_import') }}">
+      <span class="material-icons-round">upload_file</span> Import another scan
+    </a>
+    <a class="btn btn-outline" href="{{ url_for('io.import_inventory') }}">
+      <span class="material-icons-round">description</span> Back to Reports
+    </a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-sm-3">
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--info)">{{ result.verified }}</div>
+      <div class="stat-title">Verified</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--warning)">{{ result.skipped }}</div>
+      <div class="stat-title">Skipped</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--danger)">{{ result.duplicates }}</div>
+      <div class="stat-title">Duplicates</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--subtle)">{{ result.total }}</div>
+      <div class="stat-title">Total tokens read</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">fact_check</span> Verified asset rows</div>
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Asset Tag</th>
+          <th>Token</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in verified %}
+        <tr>
+          <td class="text-mono" style="color:var(--success)">
+            <span class="material-icons-round" style="font-size:14px;vertical-align:-3px">check_circle</span>
+            {{ item.asset_tag }}
+          </td>
+          <td class="text-mono text-muted">{{ item.token }}</td>
+          <td><span class="status-dot status-Available"></span> Verified</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" class="text-muted" style="text-align:center;padding:24px">
+            No rows were verified.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if result.skipped %}
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <p class="text-muted" style="font-size:12px">
+      {{ result.skipped }} scanned token(s) could not be matched to a current
+      asset (asset may have been re-assigned or disposed of since the form was
+      printed). They are left untouched — no status was changed automatically.
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

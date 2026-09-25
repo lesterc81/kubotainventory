@@ -45,7 +45,7 @@
       </select>
       <select name="type" class="form-control" style="max-width:160px;" onchange="this.form.submit()">
         <option value="">All Types</option>
-        {% for t in ['Laptop','Desktop','Monitor','Printer','Phone','Tablet','Network Equipment','Peripheral','Server','Other'] %}
+        {% for t in ['Laptop','Desktop','Monitor','Printer','Phone','Tablet','Network Equipment','Peripheral','Server','Scanner','Other'] %}
         <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t }}</option>
         {% endfor %}
       </select>

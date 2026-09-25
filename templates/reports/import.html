@@ -11,6 +11,68 @@
 <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">
   <div>
     <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">description</span> Inventory Form (PDF)</div></div>
+      <div class="card-body">
+        <p class="text-muted" style="font-size:13px;margin-bottom:14px">
+          Generate a paper inventory form for an employee. Each row carries a
+          signed QR token so the filled form can be scanned back for verification.
+        </p>
+        <div class="form-group" style="display:flex;gap:10px;align-items:flex-end">
+          <div style="flex:1">
+            <label for="inv-form-employee">Employee</label>
+            <select id="inv-form-employee" class="form-control">
+              <option value="">— Select employee —</option>
+              {% for e in employees %}
+              <option value="{{ e._id }}">{{ e.full_name }}
+                {% if e.employee_id %} ({{ e.employee_id }}){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary" id="inv-form-download"
+                  onclick="invFormDownload()" disabled>
+            <span class="material-icons-round">picture_as_pdf</span> Download PDF
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><div class="card-title"><span class="material-icons-round">qr_code_scanner</span> Intake Scan (Auto-Create Assets)</div></div>
+      <div class="card-body">
+        <p class="text-muted" style="font-size:13px;margin-bottom:14px">
+          Print a blank intake form for an employee (their name is printed on the
+          sheet), have them tick the device type and write the serial by hand,
+          then scan it back. At import, pick the employee, and the editable
+          preview lets you add the asset tags. On confirm, new assets are
+          auto-created and <b>assigned to that employee</b>.
+        </p>
+        <div class="form-group" style="display:flex;gap:10px;align-items:flex-end">
+          <div style="flex:1">
+            <label for="intake-form-employee">Employee (printed on the form)</label>
+            <select id="intake-form-employee" class="form-control">
+              <option value="">— Select employee —</option>
+              {% for e in employees %}
+              <option value="{{ e._id }}">{{ e.full_name }}
+                {% if e.employee_id %} ({{ e.employee_id }}){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="button" class="btn btn-outline" id="intake-form-download"
+                  onclick="intakeFormDownload()" disabled>
+            <span class="material-icons-round">picture_as_pdf</span> Blank Form PDF
+          </button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+          <a class="btn btn-primary" href="{{ url_for('io.inventory_intake_import') }}">
+            <span class="material-icons-round">upload_file</span> Import Intake Scan
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
       <div class="card-header"><div class="card-title"><span class="material-icons-round">upload_file</span> Upload File</div></div>
       <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -87,4 +149,59 @@
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  var sel = document.getElementById('inv-form-employee');
+  var btn = document.getElementById('inv-form-download');
+  sel.addEventListener('change', function () { btn.disabled = !sel.value; });
+  var intakeSel = document.getElementById('intake-form-employee');
+  var intakeBtn = document.getElementById('intake-form-download');
+  if (intakeSel && intakeBtn) {
+    intakeSel.addEventListener('change', function () {
+      intakeBtn.disabled = !intakeSel.value;
+    });
+  }
+})();
+function invFormDownload() {
+  var id = document.getElementById('inv-form-employee').value;
+  if (!id) return;
+  fetch('{{ url_for('io.employee_inventory_form_pdf', employee_id='__ID__') }}'
+    .replace('__ID__', id), { headers: { 'Accept': 'application/pdf' } })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.blob();
+    })
+    .then(function (blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'inventory_form_' + id + '.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(function () { alert('Could not download the PDF. Try again.'); });
+}
+function intakeFormDownload() {
+  var id = document.getElementById('intake-form-employee').value;
+  if (!id) return;
+  fetch('{{ url_for('io.inventory_intake_form_pdf', employee_id='__ID__') }}'
+    .replace('__ID__', id), { headers: { 'Accept': 'application/pdf' } })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.blob();
+    })
+    .then(function (blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'intake_form_' + id + '.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(function () { alert('Could not download the PDF. Try again.'); });
+}
+</script>
 {% endblock %}

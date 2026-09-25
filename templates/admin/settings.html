@@ -56,4 +56,36 @@
     {% endif %}
   </div>
 </div>
+
+<div class="card">
+  <div class="card-header"><div class="card-title"><span class="material-icons-round">qr_code_scanner</span> Asset QR Scanning</div></div>
+  <div class="card-body">
+    <p class="text-muted" style="font-size:13px;margin-bottom:16px">
+      Master switch for the on-site QR sticker scanning and the scan-back
+      importer. Keep it <b>OFF</b> while stickers are being printed and stuck and
+      the asset data is being reconciled; flip it <b>ON</b> once the data is
+      updated so the stickers can be used. State is audit-logged on every flip.
+    </p>
+    <div class="info-row">
+      <span class="info-label">Status</span>
+      <span class="info-value">
+        <span class="badge {{ 'badge-success' if scan_qr_enabled else 'badge-neutral' }}">
+          {{ 'Enabled' if scan_qr_enabled else 'Disabled' }}
+        </span>
+      </span>
+    </div>
+    <form method="POST" style="margin-top:16px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="scan_qr_action"
+             value="{{ 'disable' if scan_qr_enabled else 'enable' }}">
+      <button type="submit"
+              class="btn {{ 'btn-danger' if scan_qr_enabled else 'btn-primary' }}">
+        <span class="material-icons-round">
+          {{ 'pause_circle' if scan_qr_enabled else 'play_circle' }}
+        </span>
+        {{ 'Disable QR scanning' if scan_qr_enabled else 'Enable QR scanning' }}
+      </button>
+    </form>
+  </div>
+</div>
 {% endblock %}

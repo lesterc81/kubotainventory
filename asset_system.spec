@@ -31,6 +31,14 @@ a = Analysis(
         'email_validator',
         'qrcode',
         'reportlab',
+        # Paper-scan import (inventory QR scan-back) — all four import lazily
+        # at runtime inside app.py helpers, so PyInstaller can't see them
+        # without an explicit hiddenimport.
+        'cv2',
+        'pypdfium2',
+        'pypdfium2_raw',
+        'PIL',
+        'numpy',
         'openpyxl',
         'pandas',
         'openai',

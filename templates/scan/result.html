@@ -124,6 +124,7 @@
       font-weight: 700;
     }
     .assigned-block .name { font-weight: 700; font-size: 14px; color: var(--ink); }
+    .assigned-block .name a { color: var(--success); text-decoration: underline; }
     .assigned-block .emp-id { font-size: 12px; color: var(--muted); }
     .card-footer {
       padding: 12px 24px 20px;
@@ -203,7 +204,7 @@
       <div class="assigned-block">
         <div class="avatar">{{ assigned_to[:1] }}</div>
         <div>
-          <div class="name">{{ assigned_to }}</div>
+          <div class="name">{% if assigned_to_id %}<a href="{{ url_for('scan.scan_bundle', record_id=assigned_to_id) }}">{{ assigned_to }}</a>{% else %}{{ assigned_to }}{% endif %}</div>
           {% if employee_id %}<div class="emp-id">{{ employee_id }}</div>{% endif %}
         </div>
       </div>

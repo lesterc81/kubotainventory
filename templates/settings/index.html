@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Settings — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>System Settings</h1>
+    <p>Toggle features on or off</p>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">qr_code_scanner</span> QR Code Scanning</div>
+  </div>
+  <div style="padding:20px;display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <p>Kapag naka-off, hindi na mare-resolve ang mga QR scan link (asset at workstation).</p>
+      <span class="chip {{ 'chip-green' if qr_enabled else 'chip-red' }}">
+        {{ 'Enabled' if qr_enabled else 'Disabled' }}
+      </span>
+    </div>
+    <form method="POST" action="{{ url_for('settings.toggle_qr_scanning') }}">
+      <button type="submit" class="btn {{ 'btn-danger' if qr_enabled else 'btn-primary' }} btn-sm">
+        {{ 'Disable' if qr_enabled else 'Enable' }}
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

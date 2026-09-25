@@ -20,7 +20,33 @@ ACTIVE_ACC = {"Active"}
 
 
 def _oid(value):
-    return value if hasattr(value, "hex") else None
+    """Normalize a stored id reference to the ObjectId used as a map key.
+
+    Accepts an ``ObjectId`` as-is, or a 24-hex string (which the DB may store
+    for older/paper records). Returns ``None`` for anything else so lookups on
+    ``employees``/``assets`` never silently key on a non-id.
+    """
+    if value is None:
+        return None
+    if isinstance(value, ObjectId):
+        return value
+    if isinstance(value, str):
+        try:
+            return ObjectId(value)
+        except Exception:
+            return None
+    return None
+
+
+def _oid_hex(value):
+    """24-hex string form of an id, or ``""`` if it is not a valid id.
+
+    Used only for embedding ids inside signed event/token payloads (never for
+    map lookups, which rely on real ``ObjectId`` keys), so a host's decoder
+    can rebuild ``ObjectId``s with no repr-noise.
+    """
+    oid = _oid(value)
+    return str(oid) if oid is not None else ""
 
 
 def check_consistency(db):
@@ -203,3 +229,89 @@ def chain_backfill(db, key=None):
         prev_sig, prev_id = sig, doc["_id"]
         count += 1
     return count
+
+
+# ---------------------------------------------------------------------------
+# 5) Physical-inventory (paper accountability form) row tokens
+#
+# Every employee inventory form is built with one QR per accountability row.
+# The QR encodes a signed, one-time token binding ONE employee <-> ONE asset.
+# Scanning the returned paper form back in decodes these tokens; importing
+# records a *verification* (last_verified + history + audit) against the exact
+# employee/asset row -- never an unrequested status change.
+# ---------------------------------------------------------------------------
+import time
+
+INVENTORY_TOKEN_TTL_DAYS = 180  # how long a printed token stays importable
+
+
+def inventory_token_sign(employee_oid, asset_oid, issued_ts=None, key=None):
+    """Sign a one-time inventory row token: ``itsys:inv|...``.
+
+    Payload: employee_oid | asset_oid | issued_ts, HMAC-SHA256 signed with
+    the same chain key that seals the accountability audit trail, so a host
+    can only decode what it was allowed to print.
+    """
+    issued_ts = int(issued_ts if issued_ts is not None else time.time())
+    raw = f"inv|{_oid_hex(employee_oid)}|{_oid_hex(asset_oid)}|{issued_ts}"
+    return "itsys:" + raw + "|" + _sign_inv(raw, key=key)
+
+
+def inventory_token_parse(token, key=None):
+    """Verify + decode an inventory row token.
+
+    Returns (employee_oid, asset_oid) on success, else None. Rejects tokens
+    whose HMAC fails, whose TTL expired, or with foreign payloads.
+    """
+    if not token or not token.startswith("itsys:"):
+        return None
+    body = token[len("itsys:"):]
+    try:
+        raw, sig = body.rsplit("|", 1)
+    except ValueError:
+        return None
+    if not _inv_sig_ok(raw, sig, key=key):
+        return None
+    parts = raw.split("|")
+    if len(parts) != 4 or parts[0] != "inv":
+        return None
+    emp_hex, asset_hex, ts = parts[1], parts[2], parts[3]
+    try:
+        issued_ts = int(ts)
+    except (TypeError, ValueError):
+        return None
+    if time.time() - issued_ts > INVENTORY_TOKEN_TTL_DAYS * 86400:
+        return None
+    try:
+        emp_oid, asset_oid = ObjectId(emp_hex), ObjectId(asset_hex)
+    except Exception:
+        return None
+    return emp_oid, asset_oid
+
+
+def inventory_token_pairs(db, employee_doc, assets):
+    """Build [(asset, token)...] for every accountability row on the form.
+
+    Uses the same selected assets the printed PDF lists so the form and the
+    tokens always agree. ``db`` is accepted for parity with future queries.
+    """
+    emp_oid = employee_doc.get("_id")
+    return [(a, inventory_token_sign(emp_oid, a.get("_id"))) for a in assets]
+
+
+def _sign_inv(raw, key=None):
+    """HMAC-SHA256 signature (hex) over the token payload."""
+    import hashlib
+    import hmac
+    key = key or chain_key()
+    if isinstance(raw, str):
+        raw = raw.encode("utf-8")
+    return hmac.new(key, raw, hashlib.sha256).hexdigest()
+
+
+def _inv_sig_ok(raw, sig, key=None):
+    import hashlib
+    import hmac
+    key = key or chain_key()
+    expected = _sign_inv(raw, key=key)
+    return hmac.compare_digest(expected, sig or "")

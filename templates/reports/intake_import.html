@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Import Intake Scan — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Import Intake Scan</h1>
+    <p>Scan back a filled intake form to auto-create new assets</p>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start">
+  <div>
+    <div class="card mb-3">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="material-icons-round">qr_code_scanner</span> Upload Scan
+        </div>
+      </div>
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="card-body">
+          <div class="form-group mb-3">
+            <label>Scanned intake form (PDF, PNG, or JPG)</label>
+            <input type="file" name="file" class="form-control"
+                   accept=".pdf,.png,.jpg,.jpeg" required>
+            <span class="form-hint">Use a clear, well-lit photo or a 300 dpi scan so the row QR anchors decode cleanly.</span>
+          </div>
+          <div class="form-group mb-3">
+            <label>Assigned employee <span class="text-muted">(optional)</span></label>
+            <select name="employee_id" class="form-control">
+              <option value="">— Generic (assets stay Available) —</option>
+              {% for e in employees %}
+              <option value="{{ e._id }}">{{ e.full_name }}
+                {% if e.employee_id %} ({{ e.employee_id }}){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+            <span class="form-hint">Pick the employee whose form this scanned sheet belongs to — confirmed assets are auto-assigned to them.</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <a class="btn btn-outline" href="{{ url_for('io.inventory_intake_form_pdf') }}">
+              <span class="material-icons-round">print</span> Print a blank intake form
+            </a>
+            <a href="{{ url_for('io.import_inventory') }}" class="btn btn-tonal btn-sm">
+              Print per employee instead
+            </a>
+          </div>
+        </div>
+        <div class="card-footer" style="padding:12px 24px">
+          <button type="submit" class="btn btn-primary">
+            <span class="material-icons-round">fact_check</span> Detect rows
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="material-icons-round">help_outline</span> How it works</div>
+      </div>
+      <div class="card-body" style="font-size:13px;display:flex;flex-direction:column;gap:14px">
+        <div>
+          <strong>What this does</strong>
+          <p class="text-muted mt-1">Every row on an intake form has a tiny QR anchor plus 9 device-type checkboxes. Uploading a scan locates each row's anchor and reads which device-type box was ticked — then builds an editable preview where you type the serial &amp; model.</p>
+        </div>
+        <div>
+          <strong>On confirm</strong>
+          <p class="text-muted mt-1">Checked rows become <b>new assets</b> with the asset tag you type in the preview (blank = auto INTK-&lt;code&gt;-&lt;n&gt;). Rows from an employee-bound form are set to <b>Assigned</b> to that employee; generic forms stay Available.</p>
+        </div>
+        <div>
+          <strong>Assign per employee</strong>
+          <p class="text-muted mt-1">Pick the employee whose printed form you scanned — confirmed assets become <b>Assigned</b> to them automatically with an accountability record.</p>
+        </div>
+        <div>
+          <strong>Tip</strong>
+          <p class="text-muted mt-1">Handwriting is never read automatically — the checkboxes only tell us the device type; you fill the asset tag and serial/model in the preview.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

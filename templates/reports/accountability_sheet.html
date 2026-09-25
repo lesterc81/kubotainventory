@@ -21,6 +21,7 @@
     background: #14532D; color: white; padding: 24px 28px;
   }
   .sheet-top h1 { font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
+  .sheet-top h1 a.name-link { color: white; text-decoration: underline; text-underline-offset: 2px; }
   .sheet-top .sub { font-size: 12px; color: rgba(255,255,255,0.75); }
   .sheet-qr { text-align: center; background: white; border-radius: 10px; padding: 8px 10px; }
   .sheet-qr img { width: 110px; height: 110px; display: block; }
@@ -29,6 +30,7 @@
   .identity { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; border-bottom: 1px solid #EDEAE6; padding-bottom: 16px; margin-bottom: 20px; }
   .identity .label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #6E6A64; }
   .identity .value { font-weight: 700; font-size: 14px; margin-top: 2px; }
+  .identity .value a.name-link { color: #14532D; text-decoration: underline; text-underline-offset: 2px; }
   .sheet-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .sheet-title h2 { font-size: 14px; font-weight: 800; color: #14532D; text-transform: uppercase; letter-spacing: .04em; }
   .sheet-title .count { font-size: 12px; color: #6E6A64; }
@@ -55,7 +57,7 @@
     <div class="sheet-top">
       <div>
         <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,0.7)">Asset Accountability Sheet</div>
-        <h1>{{ emp.full_name }}</h1>
+        <h1>{% if emp.id %}<a class="name-link" href="{{ url_for('scan.scan_bundle', record_id=emp.id) }}">{{ emp.full_name }}</a>{% else %}{{ emp.full_name }}{% endif %}</h1>
         <div class="sub">{{ emp.employee_id }} · {{ emp.position }}</div>
         <span class="status-chip" style="background:{% if emp.status == 'Active' %}#22C55E{% elif emp.status == 'Resigned' %}#B03A2A{% else %}#C99A3E{% endif %}">{{ emp.status }}</span>
       </div>
@@ -71,7 +73,7 @@
         <div><div class="label">Site</div><div class="value">{{ emp.site }}</div></div>
         <div><div class="label">Section / Group</div><div class="value">{% if emp.section and emp.group %}{{ emp.section }} · {{ emp.group }}{% elif emp.section %}{{ emp.section }}{% elif emp.group %}{{ emp.group }}{% else %}&mdash;{% endif %}</div></div>
         {% if primary_emp %}
-        <div><div class="label">Accountable Officer</div><div class="value">{{ primary_emp.full_name }}</div></div>
+        <div><div class="label">Accountable Officer</div><div class="value"><a class="name-link" href="{{ url_for('scan.scan_bundle', record_id=primary_emp.id) }}">{{ primary_emp.full_name }}</a></div></div>
         {% endif %}
       </div>
 

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Intake Import Result — IT Asset System{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Intake Import Result</h1>
+    <p>Assets created from your scanned intake form</p>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-outline" href="{{ url_for('io.inventory_intake_import') }}">
+      <span class="material-icons-round">upload_file</span> Import another scan
+    </a>
+    <a class="btn btn-outline" href="{{ url_for('assets.list_view') }}">
+      <span class="material-icons-round">devices</span> View all assets
+    </a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-sm-3">
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--success)">{{ result.created }}</div>
+      <div class="stat-title">Created</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--warning)">{{ result.skipped }}</div>
+      <div class="stat-title">Skipped</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--danger)">{{ result.duplicates }}</div>
+      <div class="stat-title">Duplicates</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card stat-card">
+      <div class="stat-value" style="color:var(--subtle)">{{ result.total }}</div>
+      <div class="stat-title">Total rows checked</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span class="material-icons-round">add_circle</span> Created assets</div>
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Asset Tag</th>
+          <th>Row token</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in created %}
+        <tr>
+          <td class="text-mono" style="color:var(--success)">
+            <span class="material-icons-round" style="font-size:14px;vertical-align:-3px">check_circle</span>
+            {{ item.asset_tag }}
+          </td>
+          <td class="text-mono text-muted">{{ item.token }}</td>
+          <td>
+            {% if item.status == 'Assigned' %}
+            <span class="status-dot status-Assigned"></span> Assigned
+            {% else %}
+            <span class="status-dot status-Available"></span> Available
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" class="text-muted" style="text-align:center;padding:24px">
+            No assets were created.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if result.skipped or result.duplicates %}
+  <div class="card-body" style="border-top:1px solid var(--border)">
+    <p class="text-muted" style="font-size:12px">
+      {{ result.skipped }} row(s) were skipped because no device type was set, and
+      {{ result.duplicates }} row(s) had a serial/tag that already exists.
+      Those rows were left untouched.
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
