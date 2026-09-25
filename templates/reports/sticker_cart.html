@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Sticker Cart — IT Asset System{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Sticker Cart</h1>
+    <p>Pending asset tags queued for one print run — {{ items|length }} item{{ 's' if items|length != 1 }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('assets.list_view') }}" class="btn btn-outline btn-sm">
+      <span class="material-icons-round">add_shopping_cart</span> Add More
+    </a>
+    <a href="{{ url_for('io.sticker_cart_print') }}" target="_blank" rel="noopener"
+       class="btn btn-primary btn-sm{% if not items %} disabled{% endif %}" title="Print all stickers in the cart">
+      <span class="material-icons-round">print</span> Print ({{ items|length }})
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  {% if items %}
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:56px">Preview</th>
+          <th>Asset Tag</th>
+          <th>Site</th>
+          <th>Type</th>
+          <th>Model</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for it in items %}
+      <tr>
+        <td>
+          <img src="data:image/png;base64,{{ it.qr }}" alt="QR" style="width:46px;height:46px;border:1px solid #DED5CC;border-radius:6px;">
+        </td>
+        <td>
+          <a href="{{ url_for('assets.detail', asset_id=it.asset._id) }}" style="font-weight:600;">
+            {{ it.asset.asset_tag }}
+          </a>
+          {% if it.asset.endpoint_name %}
+          <div class="text-muted text-small">{{ it.asset.endpoint_name }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {% set c_site = it.asset.asset_tag|site_from_tag %}
+          {% if c_site %}<span class="chip chip-grey" style="font-size:12px">{{ c_site }}</span>
+          {% else %}<span class="text-muted">—</span>{% endif %}
+        </td>
+        <td>{{ it.asset.device_type }}</td>
+        <td>{{ it.asset.model_name }}</td>
+        <td>{{ it.asset.location or '—' }}</td>
+        <td><span class="chip chip-grey">{{ it.asset.status }}</span></td>
+        <td>
+          <form method="post" action="{{ url_for('io.sticker_cart_remove') }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="asset_id" value="{{ it.asset._id }}">
+            <button type="submit" class="btn btn-outline btn-sm" title="Remove from cart">
+              <span class="material-icons-round">remove_shopping_cart</span>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px;border-top:1px solid #EEE6DD;">
+    <form method="post" action="{{ url_for('io.sticker_cart_clear') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-outline btn-sm">
+        <span class="material-icons-round">delete_sweep</span> Clear All
+      </button>
+    </form>
+  </div>
+  {% else %}
+  <div class="empty-state" style="text-align:center;padding:60px 20px;">
+    <span class="material-icons-round" style="font-size:64px;opacity:0.3;">shopping_cart</span>
+    <h3 style="margin:16px 0 8px;">Walang laman ang cart</h3>
+    <p style="color:var(--ink-muted);margin-bottom:16px;">
+      Pumili ng assets sa listahan at pindutin ang <strong>Add to Cart</strong>.
+    </p>
+    <a href="{{ url_for('assets.list_view') }}" class="btn btn-primary btn-sm">
+      <span class="material-icons-round">inventory_2</span> Go to Assets
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

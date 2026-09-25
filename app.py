@@ -3679,6 +3679,67 @@ def employee_stickers():
     return render_template("reports/stickers_employees.html", stickers=stickers)
 
 
+def _sticker_cart_ids():
+    """Order-unique asset _id strings queued in the current user's sticker cart."""
+    return list(dict.fromkeys(session.get("sticker_cart", []) or []))
+
+
+@io_bp.route("/reports/stickers/cart")
+@login_required
+def sticker_cart():
+    """Sticker cart page — pending asset tags queued for one print run."""
+    ids = _sticker_cart_ids()
+    oids = [oid for oid in (safe_object_id(i) for i in ids) if oid]
+    assets = list(mongo.db.assets.find({"_id": {"$in": oids}})) if oids else []
+    by_id = {str(a["_id"]): a for a in assets}
+    items = [{"asset": serialize_doc(by_id[i]), "qr": generate_asset_qr(by_id[i])}
+             for i in ids if i in by_id]
+    return render_template("reports/sticker_cart.html", items=items)
+
+
+@io_bp.route("/reports/stickers/cart/add", methods=["POST"])
+@login_required
+def sticker_cart_add():
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids") or request.form.getlist("ids")
+    cart = _sticker_cart_ids()
+    present = set(cart)
+    for i in ids:
+        if i and i not in present:
+            cart.append(i)
+            present.add(i)
+    session["sticker_cart"] = cart
+    return jsonify({"count": len(cart), "added": len([i for i in ids if i])})
+
+
+@io_bp.route("/reports/stickers/cart/remove", methods=["POST"])
+@login_required
+def sticker_cart_remove():
+    asset_id = request.form.get("asset_id")
+    if asset_id:
+        session["sticker_cart"] = [i for i in _sticker_cart_ids() if i != asset_id]
+    return redirect(url_for("io.sticker_cart"))
+
+
+@io_bp.route("/reports/stickers/cart/clear", methods=["POST"])
+@login_required
+def sticker_cart_clear():
+    session.pop("sticker_cart", None)
+    return redirect(url_for("io.sticker_cart"))
+
+
+@io_bp.route("/reports/stickers/cart/print")
+@login_required
+def sticker_cart_print():
+    ids = _sticker_cart_ids()
+    oids = [oid for oid in (safe_object_id(i) for i in ids) if oid]
+    assets = list(mongo.db.assets.find({"_id": {"$in": oids}})) if oids else []
+    by_id = {str(a["_id"]): a for a in assets}
+    ordered = [by_id[i] for i in ids if i in by_id]
+    stickers = [{"asset": serialize_doc(a), "qr": generate_asset_qr(a)} for a in ordered]
+    return render_template("reports/stickers.html", stickers=stickers, sticker_type="Asset")
+
+
 @io_bp.route("/reports/accountability-sheet/<employee_id>")
 @login_required
 def accountability_sheet(employee_id):
@@ -4674,6 +4735,10 @@ def create_app(config_name=None):
     login_manager.init_app(app)
 
     app.jinja_env.filters["site_from_tag"] = site_from_tag
+
+    @app.context_processor
+    def _sticker_cart_globals():
+        return {"sticker_cart_count": len(_sticker_cart_ids())}
 
     for bp in (auth_bp, dashboard_bp, employees_bp, assets_bp,
                accountabilities_bp, remarks_bp, audits_bp, admin_bp, users_bp, io_bp,

@@ -20,6 +20,12 @@
     <button type="button" id="printStickersBtn" class="btn btn-outline btn-sm" disabled title="Print QR stickers for selected assets">
       <span class="material-icons-round">qr_code_2</span> Print Stickers
     </button>
+    <button type="button" id="addCartBtn" class="btn btn-outline btn-sm" disabled title="Add selected assets to the sticker cart">
+      <span class="material-icons-round">add_shopping_cart</span> Add to Cart
+    </button>
+    <a href="{{ url_for('io.sticker_cart') }}" id="cartLinkBtn" class="btn btn-tonal btn-sm" title="Open sticker cart">
+      <span class="material-icons-round">shopping_cart</span> Sticker Cart (<span id="cartBadge">{{ sticker_cart_count }}</span>)
+    </a>
     <button type="button" onclick="asyncDownload('{{ url_for('io.export_assets') }}')" class="btn btn-outline btn-sm">
       <span class="material-icons-round">download</span> Export
     </button>
@@ -136,6 +142,10 @@
         </td>
         <td>
           <div class="flex" style="gap:6px;">
+            <button type="button" class="btn btn-outline btn-sm" title="Add to sticker cart"
+                    data-cart-add="{{ a._id }}">
+              <span class="material-icons-round">add_shopping_cart</span>
+            </button>
             <button type="button" class="btn btn-outline btn-sm" title="Show QR code"
                     data-qr-url="{{ url_for('assets.asset_qr', asset_id=a._id) }}"
                     data-qr-tag="{{ a.asset_tag }}"
@@ -224,12 +234,33 @@
   // Batch QR sticker print: select rows, then print them all on one sheet.
   var selectAllPage = document.getElementById('selectAllPage');
   var printStickersBtn = document.getElementById('printStickersBtn');
+  var addCartBtn = document.getElementById('addCartBtn');
+  var cartBadge = document.getElementById('cartBadge');
+  var cartAddUrl = {{ url_for('io.sticker_cart_add') | tojson }};
   var selects = Array.prototype.slice.call(document.querySelectorAll('.asset-select'));
+
+  function refreshCartCount(n) {
+    if (cartBadge) { cartBadge.textContent = n; }
+  }
+
+  function addToCart(ids, done) {
+    if (!ids.length) { if (done) { done(); } return; }
+    fetch(cartAddUrl, {
+      method: 'POST',
+      headers: csrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ids: ids })
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      refreshCartCount(d.count);
+      if (done) { done(); }
+    }).catch(function() { if (done) { done(); } });
+  }
 
   function updatePrintButton() {
     var n = selects.filter(function(s) { return s.checked; }).length;
     printStickersBtn.disabled = n === 0;
     printStickersBtn.innerHTML = '<span class="material-icons-round">qr_code_2</span> Print Stickers' + (n ? ' (' + n + ')' : '');
+    addCartBtn.disabled = n === 0;
+    addCartBtn.innerHTML = '<span class="material-icons-round">add_shopping_cart</span> Add to Cart' + (n ? ' (' + n + ')' : '');
     if (selectAllPage) {
       selectAllPage.checked = selects.length > 0 && selects.every(function(s) { return s.checked; });
       selectAllPage.indeterminate = !selectAllPage.checked && selects.some(function(s) { return s.checked; });
@@ -247,6 +278,18 @@
     if (!ids.length) { return; }
     var base = {{ url_for('io.asset_stickers') | tojson }};
     window.location.href = base + '?ids=' + ids.join('&ids=');
+  });
+  addCartBtn.addEventListener('click', function() {
+    var ids = selects.filter(function(s) { return s.checked; }).map(function(s) { return s.value; });
+    addToCart(ids, function() {
+      selects.forEach(function(s) { s.checked = false; });
+      updatePrintButton();
+    });
+  });
+  document.querySelectorAll('[data-cart-add]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      addToCart([btn.dataset.cartAdd]);
+    });
   });
 })();
 </script>
