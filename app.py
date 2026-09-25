@@ -4820,11 +4820,16 @@ def register_cli(app):
             # so duplicate blank serials crash with E11000. Use a partial index
             # that only covers string serials and normalize blanks to None.
             info = mongo.db.assets.index_information()
-            legacy_serial = info.get("serial_number_1")
             want_partial = {"serial_number": {"$type": "string"}}
-            if legacy_serial and legacy_serial.get("partialFilterExpression") != want_partial:
-                print("[INDEXES] Dropping legacy unique serial_number index…")
-                mongo.db.assets.drop_index("serial_number_1")
+            # Drop ANY legacy unique serial_number index, whatever its name.
+            for name, spec in list(info.items()):
+                if name == "_id_":
+                    continue
+                keys = [k for k, _ in spec.get("key", [])]
+                if keys == ["serial_number"] and spec.get("unique") \
+                        and spec.get("partialFilterExpression") != want_partial:
+                    print(f"[INDEXES] Dropping legacy unique serial_number index {name}…")
+                    mongo.db.assets.drop_index(name)
             # Migrate any legacy blank serials out of the index.
             mongo.db.assets.update_many(
                 {"serial_number": {"$regex": r"^\s*$"}},
@@ -4848,7 +4853,8 @@ def register_cli(app):
             mongo.db.ai_anomalies.create_index([("detected_at", -1)])
             mongo.db.ai_anomalies.create_index([("acknowledged", 1), ("severity", 1)])
             mongo.db.ai_reports.create_index([("generated_at", -1)])
-            print("[INDEXES] Created.")
+            ser_idx = mongo.db.assets.index_information().get("serial_number_1")
+            print("[INDEXES] Created. serial_number_1 =", dict(ser_idx or {}))
 
 
 # WSGI entrypoint for gunicorn/uwsgi: `gunicorn 'app:create_app()'`
